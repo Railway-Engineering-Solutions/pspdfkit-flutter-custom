@@ -169,6 +169,20 @@ class PspdfkitFlutterWidgetControllerImpl
   }
 
   @override
+  Future<bool?> setDefaultAnnotationColor(Color color) {
+    // Default color setting is currently only supported on Web platform
+    throw UnimplementedError(
+        'setDefaultAnnotationColor is currently only supported on Web platform');
+  }
+
+  @override
+  Color? get defaultAnnotationColor {
+    // Default color getting is currently only supported on Web platform
+    throw UnimplementedError(
+        'defaultAnnotationColor is currently only supported on Web platform');
+  }
+
+  @override
   void onDocumentError(String documentId, String error) {
     onPdfDocumentLoadFailed?.call(error);
   }

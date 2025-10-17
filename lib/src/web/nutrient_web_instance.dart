@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:html';
 import 'dart:js';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/document/document_save_options_extension.dart';
@@ -23,6 +24,11 @@ import 'nutrient_web_utils.dart';
 /// It is returned by [PSPDFKit.load].
 class NutrientWebInstance {
   final JsObject _nutrientInstance;
+
+  /// Default color for all annotation operations
+  /// This color will be used when no specific color is provided
+  Color? _defaultAnnotationColor;
+
   NutrientWebInstance(this._nutrientInstance);
 
   List<String> get availableDocumentInfoKeys {
@@ -31,6 +37,43 @@ class NutrientWebInstance {
 
   /// Returns the PSPDFKitInstance JsObject.
   JsObject get jsObject => _nutrientInstance;
+
+  /// Sets the default color for all annotation operations.
+  /// This color will be used when no specific color is provided to annotation methods.
+  ///
+  /// Example:
+  /// ```dart
+  /// await instance.setDefaultAnnotationColor(Colors.red);
+  /// // Now all annotations will use red color by default
+  /// ```
+  Future<void> setDefaultAnnotationColor(Color color) async {
+    _defaultAnnotationColor = color;
+
+    // Also set it in the current view state if we're in annotation mode
+    try {
+      await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
+        allowInterop((viewState) {
+          var colorClass = context['PSPDFKit']['Color'];
+          var pspdfkitColor = JsObject(colorClass, [
+            JsObject.jsify({
+              'r': (color.r * 255).round(),
+              'g': (color.g * 255).round(),
+              'b': (color.b * 255).round(),
+            })
+          ]);
+          return viewState.callMethod('set', ['strokeColor', pspdfkitColor]);
+        })
+      ]));
+    } catch (e) {
+      // If setting in view state fails, that's okay - the default is still set
+      if (kDebugMode) {
+        print('Warning: Could not set default color in view state: $e');
+      }
+    }
+  }
+
+  /// Gets the current default annotation color.
+  Color? get defaultAnnotationColor => _defaultAnnotationColor;
 
   /// Saves the current state of the PSPDFKit instance.
   /// Throws an error if the operation fails.
@@ -513,14 +556,17 @@ class NutrientWebInstance {
                   [toolMode.toWebInteractionMode()]
             ]);
 
-            // If color is provided, set the stroke color
-            if (color != null) {
+            // Determine which color to use: provided color, default color, or none
+            Color? colorToUse = color ?? _defaultAnnotationColor;
+
+            // If we have a color (either provided or default), set the stroke color
+            if (colorToUse != null) {
               var colorClass = context['PSPDFKit']['Color'];
               var pspdfkitColor = JsObject(colorClass, [
                 JsObject.jsify({
-                  'r': (color.r * 255).round(),
-                  'g': (color.g * 255).round(),
-                  'b': (color.b * 255).round(),
+                  'r': (colorToUse.r * 255).round(),
+                  'g': (colorToUse.g * 255).round(),
+                  'b': (colorToUse.b * 255).round(),
                 })
               ]);
               updatedState = updatedState
@@ -537,19 +583,105 @@ class NutrientWebInstance {
   }
 
   /// Enables or disables user interaction with the PDF viewer.
+  /// This completely prevents ALL interaction including clicking on existing annotations.
   /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
   ///
   /// [enabled] - true to enable user interaction, false to disable it.
   /// Throws an error if the operation fails.
   Future<void> setUserInteractionEnabled(bool enabled) async {
     try {
+      // Method 1: Use PSPDFKit ViewState API to disable interactions
       await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
         allowInterop((viewState) {
-          return viewState.callMethod('set', ['readOnly', !enabled]);
+          var updatedState = viewState;
+
+          if (!enabled) {
+            // Completely disable all interactions
+            updatedState = updatedState.callMethod('set', ['readOnly', true]);
+            updatedState =
+                updatedState.callMethod('set', ['interactionMode', null]);
+
+            // Disable annotation selection and interaction
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationSelection', false]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationEditing', false]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationCreation', false]);
+
+            // Disable text selection and other interactions
+            updatedState =
+                updatedState.callMethod('set', ['allowTextSelection', false]);
+            updatedState = updatedState
+                .callMethod('set', ['allowFormFieldEditing', false]);
+
+            // Disable zoom and pan
+            updatedState =
+                updatedState.callMethod('set', ['allowZooming', false]);
+            updatedState =
+                updatedState.callMethod('set', ['allowPanning', false]);
+
+            // Disable page navigation
+            updatedState =
+                updatedState.callMethod('set', ['allowPageNavigation', false]);
+          } else {
+            // Re-enable all interactions
+            updatedState = updatedState.callMethod('set', ['readOnly', false]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationSelection', true]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationEditing', true]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationCreation', true]);
+            updatedState =
+                updatedState.callMethod('set', ['allowTextSelection', true]);
+            updatedState =
+                updatedState.callMethod('set', ['allowFormFieldEditing', true]);
+            updatedState =
+                updatedState.callMethod('set', ['allowZooming', true]);
+            updatedState =
+                updatedState.callMethod('set', ['allowPanning', true]);
+            updatedState =
+                updatedState.callMethod('set', ['allowPageNavigation', true]);
+          }
+
+          return updatedState;
         })
       ]));
+
+      // Method 2: Use CSS pointer-events as additional protection
+      _setCSSPointerEvents(enabled);
     } catch (e) {
       throw Exception('Failed to set user interaction: $e');
+    }
+  }
+
+  /// Sets CSS pointer-events to completely prevent mouse interactions
+  void _setCSSPointerEvents(bool enabled) {
+    try {
+      // Get the PSPDFKit container element
+      var container = _nutrientInstance.callMethod('getContainerElement');
+      if (container != null) {
+        var style = container['style'];
+        if (style != null) {
+          if (!enabled) {
+            // Disable all pointer events
+            style['pointerEvents'] = 'none';
+            style['userSelect'] = 'none';
+            style['touchAction'] = 'none';
+          } else {
+            // Re-enable pointer events
+            style['pointerEvents'] = 'auto';
+            style['userSelect'] = 'auto';
+            style['touchAction'] = 'auto';
+          }
+        }
+      }
+    } catch (e) {
+      // If CSS manipulation fails, that's okay - PSPDFKit API should handle it
+      if (kDebugMode) {
+        print('Warning: Could not set CSS pointer events: $e');
+      }
     }
   }
 

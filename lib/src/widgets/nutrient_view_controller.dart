@@ -99,4 +99,19 @@ abstract class NutrientViewController {
   /// [enabled] - true to enable user interaction, false to disable it.
   /// Returns a [Future] that completes with a boolean indicating success.
   Future<bool?> setUserInteractionEnabled(bool enabled);
+
+  /// Sets the default color for all annotation operations.
+  /// This color will be used when no specific color is provided to annotation methods.
+  ///
+  /// Example:
+  /// ```dart
+  /// await controller.setDefaultAnnotationColor(Colors.red);
+  /// // Now all annotations will use red color by default
+  /// await controller.enterAnnotationCreationMode(AnnotationTool.inkPen);
+  /// // Ink pen will use red color
+  /// ```
+  Future<bool?> setDefaultAnnotationColor(Color color);
+
+  /// Gets the current default annotation color.
+  Color? get defaultAnnotationColor;
 }

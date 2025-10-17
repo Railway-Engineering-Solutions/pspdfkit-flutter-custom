@@ -281,6 +281,31 @@ class PspdfkitWidgetControllerWeb extends PspdfkitWidgetController
     }
   }
 
+  /// Sets the default color for all annotation operations.
+  /// This color will be used when no specific color is provided to annotation methods.
+  ///
+  /// Example:
+  /// ```dart
+  /// await controller.setDefaultAnnotationColor(Colors.red);
+  /// // Now all annotations will use red color by default
+  /// await controller.enterAnnotationCreationMode(AnnotationTool.inkPen);
+  /// // Ink pen will use red color
+  /// ```
+  Future<bool?> setDefaultAnnotationColor(Color color) async {
+    try {
+      await pspdfkitInstance.setDefaultAnnotationColor(color);
+      return Future.value(true);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting default annotation color: $e');
+      }
+      return Future.value(false);
+    }
+  }
+
+  /// Gets the current default annotation color.
+  Color? get defaultAnnotationColor => pspdfkitInstance.defaultAnnotationColor;
+
   // Helper method to process event data and invoke the user callback
   void _processAndInvokeCallback(
       dynamic data, Function(dynamic) userCallback, dynamic eventEnum) {
