@@ -21,13 +21,30 @@ class AnnotationManagerWeb extends AnnotationManager {
   /// This prevents infinite loops when listening to annotation events and making changes
   bool _suppressAnnotationEvents = false;
 
-  AnnotationManagerWeb({required super.documentId});
+  /// Static accessor for checking if events should be suppressed
+  /// This allows controllers to check the flag without direct reference
+  static final Map<String, AnnotationManagerWeb> _instances = {};
+
+  AnnotationManagerWeb({required super.documentId}) {
+    _instances[documentId] = this;
+  }
 
   /// Sets the web instance for web platform.
   void setWebInstance(dynamic webInstance) {
     if (webInstance is NutrientWebInstance) {
       _instance = webInstance;
     }
+  }
+
+  /// Check if events should be suppressed for a given document
+  /// If documentId is empty, checks if ANY annotation manager is suppressing events
+  static bool shouldSuppressEvents([String documentId = '']) {
+    if (documentId.isNotEmpty) {
+      return _instances[documentId]?._suppressAnnotationEvents ?? false;
+    }
+    // Check if any instance is suppressing events
+    return _instances.values
+        .any((manager) => manager._suppressAnnotationEvents);
   }
 
   /// Temporarily suppresses annotation events during a programmatic operation.

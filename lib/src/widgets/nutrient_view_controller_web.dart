@@ -15,6 +15,7 @@ import 'package:flutter/painting.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/events/nutrient_events_extension.dart';
 import '../document/annotation_json_converter.dart';
+import '../document/annotation_manager_web.dart';
 import '../web/nutrient_web.dart';
 import '../web/nutrient_web_instance.dart';
 
@@ -343,6 +344,22 @@ class NutrientViewControllerWeb extends NutrientViewController
       if (kDebugMode && eventEnum.toString().contains('annotations')) {
         if (kDebugMode) {
           print('Processing ${eventEnum.toString()} event: $finalData');
+        }
+      }
+
+      // Check if annotation events should be suppressed
+      // This prevents infinite loops when programmatically modifying annotations
+      if (eventEnum.toString().contains('annotations')) {
+        try {
+          // Check if we should suppress annotation events
+          if (AnnotationManagerWeb.shouldSuppressEvents('')) {
+            if (kDebugMode) {
+              print('Suppressing ${eventEnum.toString()} event');
+            }
+            return; // Don't call the user callback
+          }
+        } catch (e) {
+          // If check fails, proceed with callback
         }
       }
 
