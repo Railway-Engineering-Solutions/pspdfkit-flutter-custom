@@ -650,7 +650,15 @@ class NutrientWebInstance {
       ]));
 
       // Method 2: Use CSS pointer-events as additional protection
-      _setCSSPointerEvents(enabled);
+      // This is optional - if it fails, PSPDFKit API should still work
+      try {
+        _setCSSPointerEvents(enabled);
+      } catch (e) {
+        // CSS manipulation failed, but that's okay
+        if (kDebugMode) {
+          print('Warning: CSS pointer events manipulation failed: $e');
+        }
+      }
     } catch (e) {
       throw Exception('Failed to set user interaction: $e');
     }
@@ -659,21 +667,56 @@ class NutrientWebInstance {
   /// Sets CSS pointer-events to completely prevent mouse interactions
   void _setCSSPointerEvents(bool enabled) {
     try {
-      // Get the PSPDFKit container element
-      var container = _nutrientInstance.callMethod('getContainerElement');
-      if (container != null) {
-        var style = container['style'];
-        if (style != null) {
-          if (!enabled) {
-            // Disable all pointer events
-            style['pointerEvents'] = 'none';
-            style['userSelect'] = 'none';
-            style['touchAction'] = 'none';
-          } else {
-            // Re-enable pointer events
-            style['pointerEvents'] = 'auto';
-            style['userSelect'] = 'auto';
-            style['touchAction'] = 'auto';
+      // Try to find PSPDFKit container through DOM query
+      var document = context['document'];
+      var containers = document.callMethod('querySelectorAll', [
+        '.pspdfkit-container, [data-pspdfkit-container], .nutrient-container'
+      ]);
+
+      if (containers != null && containers['length'] > 0) {
+        // Apply to all found containers
+        for (int i = 0; i < containers['length']; i++) {
+          var container = containers[i];
+          if (container != null) {
+            var style = container['style'];
+            if (style != null) {
+              if (!enabled) {
+                // Disable all pointer events
+                style['pointerEvents'] = 'none';
+                style['userSelect'] = 'none';
+                style['touchAction'] = 'none';
+              } else {
+                // Re-enable pointer events
+                style['pointerEvents'] = 'auto';
+                style['userSelect'] = 'auto';
+                style['touchAction'] = 'auto';
+              }
+            }
+          }
+        }
+      } else {
+        // Fallback: Try to get container from PSPDFKit instance
+        try {
+          var container = _nutrientInstance.callMethod('getContainerElement');
+          if (container != null && container is JsObject) {
+            var style = container['style'];
+            if (style != null && style is JsObject) {
+              if (!enabled) {
+                style['pointerEvents'] = 'none';
+                style['userSelect'] = 'none';
+                style['touchAction'] = 'none';
+              } else {
+                style['pointerEvents'] = 'auto';
+                style['userSelect'] = 'auto';
+                style['touchAction'] = 'auto';
+              }
+            }
+          }
+        } catch (e) {
+          // If all methods fail, skip CSS manipulation
+          if (kDebugMode) {
+            print(
+                'Warning: Could not access PSPDFKit container for CSS manipulation');
           }
         }
       }
