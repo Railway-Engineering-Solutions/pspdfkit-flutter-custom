@@ -491,9 +491,10 @@ class NutrientWebInstance {
   /// The [toolMode] parameter specifies the interaction mode to set.
   /// This can be one of the PSPDFKit.InteractionMode values.
   /// If null is provided, it will reset to the default interaction mode (null).
+  /// If [color] is provided, it will be set as the annotation color.
   ///
   /// Throws an error if the operation fails.
-  Future<void> setToolMode(AnnotationTool? toolMode) async {
+  Future<void> setToolMode(AnnotationTool? toolMode, [Color? color]) async {
     try {
       if (toolMode == null) {
         // Reset to default interaction mode (null)
@@ -506,16 +507,49 @@ class NutrientWebInstance {
         // Set the interaction mode using ViewState API
         await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
           allowInterop((viewState) {
-            return viewState.callMethod('set', [
+            var updatedState = viewState.callMethod('set', [
               'interactionMode',
               context['PSPDFKit']['InteractionMode']
                   [toolMode.toWebInteractionMode()]
             ]);
+
+            // If color is provided, set the stroke color
+            if (color != null) {
+              var colorClass = context['PSPDFKit']['Color'];
+              var pspdfkitColor = JsObject(colorClass, [
+                JsObject.jsify({
+                  'r': (color.r * 255).round(),
+                  'g': (color.g * 255).round(),
+                  'b': (color.b * 255).round(),
+                })
+              ]);
+              updatedState = updatedState
+                  .callMethod('set', ['strokeColor', pspdfkitColor]);
+            }
+
+            return updatedState;
           })
         ]));
       }
     } catch (e) {
       throw Exception('Failed to set tool mode: $e');
+    }
+  }
+
+  /// Enables or disables user interaction with the PDF viewer.
+  /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
+  ///
+  /// [enabled] - true to enable user interaction, false to disable it.
+  /// Throws an error if the operation fails.
+  Future<void> setUserInteractionEnabled(bool enabled) async {
+    try {
+      await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
+        allowInterop((viewState) {
+          return viewState.callMethod('set', ['readOnly', !enabled]);
+        })
+      ]));
+    } catch (e) {
+      throw Exception('Failed to set user interaction: $e');
     }
   }
 

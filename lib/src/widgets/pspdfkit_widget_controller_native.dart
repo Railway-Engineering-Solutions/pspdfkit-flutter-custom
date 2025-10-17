@@ -182,7 +182,7 @@ class PspdfkitWidgetControllerNative extends PspdfkitWidgetController {
 
   @override
   Future<bool?> enterAnnotationCreationMode(
-      [AnnotationTool? annotationTool]) async {
+      [AnnotationTool? annotationTool, Color? color]) async {
     throw UnimplementedError(
         'Annotation creation mode is not supported in legacy mode');
   }
@@ -191,6 +191,12 @@ class PspdfkitWidgetControllerNative extends PspdfkitWidgetController {
   Future<bool?> exitAnnotationCreationMode() async {
     throw UnimplementedError(
         'Annotation creation mode is not supported in legacy mode');
+  }
+
+  @override
+  Future<bool?> setUserInteractionEnabled(bool enabled) async {
+    throw UnimplementedError(
+        'User interaction control is not supported in legacy mode');
   }
 
   @override

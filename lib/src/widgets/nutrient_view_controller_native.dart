@@ -122,7 +122,10 @@ class NutrientViewControllerNative
   }
 
   @override
-  Future<bool?> enterAnnotationCreationMode([AnnotationTool? annotationTool]) {
+  Future<bool?> enterAnnotationCreationMode(
+      [AnnotationTool? annotationTool, Color? color]) {
+    // TODO: Implement color parameter support for native platforms
+    // For now, only pass the tool mode
     return _pspdfkitWidgetControllerApi
         .enterAnnotationCreationMode(annotationTool);
   }
@@ -130,6 +133,13 @@ class NutrientViewControllerNative
   @override
   Future<bool?> exitAnnotationCreationMode() {
     return _pspdfkitWidgetControllerApi.exitAnnotationCreationMode();
+  }
+
+  @override
+  Future<bool?> setUserInteractionEnabled(bool enabled) {
+    // User interaction control is currently only supported on Web platform
+    throw UnimplementedError(
+        'setUserInteractionEnabled is currently only supported on Web platform');
   }
 
   @override

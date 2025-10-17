@@ -119,14 +119,24 @@ abstract class PspdfkitWidgetController {
   ///
   /// If [annotationTool] is provided, that specific tool will be activated.
   /// If no tool is provided, the default annotation tool will be used.
+  /// If [color] is provided, the annotation will be created with that color.
   ///
   /// Returns a [Future] that completes with a boolean indicating whether
   /// entering annotation creation mode was successful.
-  Future<bool?> enterAnnotationCreationMode([AnnotationTool? annotationTool]);
+  Future<bool?> enterAnnotationCreationMode(
+      [AnnotationTool? annotationTool, Color? color]);
 
   /// Exits annotation creation mode.
   ///
   /// Returns a [Future] that completes with a boolean indicating whether
   /// exiting annotation creation mode was successful.
   Future<bool?> exitAnnotationCreationMode();
+
+  /// Enables or disables user interaction with the PDF viewer.
+  /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
+  /// Currently only supported on Web platform.
+  ///
+  /// [enabled] - true to enable user interaction, false to disable it.
+  /// Returns a [Future] that completes with a boolean indicating success.
+  Future<bool?> setUserInteractionEnabled(bool enabled);
 }

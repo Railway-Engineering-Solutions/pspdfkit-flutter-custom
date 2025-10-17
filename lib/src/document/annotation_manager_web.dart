@@ -17,6 +17,10 @@ import 'package:nutrient_flutter/src/web/nutrient_web_utils.dart';
 class AnnotationManagerWeb extends AnnotationManager {
   late NutrientWebInstance _instance;
 
+  /// Flag to suppress annotation events when performing programmatic operations
+  /// This prevents infinite loops when listening to annotation events and making changes
+  bool _suppressAnnotationEvents = false;
+
   AnnotationManagerWeb({required super.documentId});
 
   /// Sets the web instance for web platform.
@@ -25,6 +29,30 @@ class AnnotationManagerWeb extends AnnotationManager {
       _instance = webInstance;
     }
   }
+
+  /// Temporarily suppresses annotation events during a programmatic operation.
+  /// This is useful to prevent infinite loops when listening to annotation create/update/delete events
+  /// and performing operations in those callbacks.
+  ///
+  /// Example:
+  /// ```dart
+  /// await annotationManager.suppressAnnotationEvents(() async {
+  ///   await annotationManager.addAnnotation(myAnnotation);
+  /// });
+  /// ```
+  Future<T> suppressAnnotationEvents<T>(Future<T> Function() operation) async {
+    final previousState = _suppressAnnotationEvents;
+    _suppressAnnotationEvents = true;
+    try {
+      return await operation();
+    } finally {
+      // Restore the previous state in case of nested calls
+      _suppressAnnotationEvents = previousState;
+    }
+  }
+
+  /// Gets whether annotation events are currently being suppressed
+  bool get isSuppressingAnnotationEvents => _suppressAnnotationEvents;
 
   @override
   Future<AnnotationProperties?> getAnnotationProperties(

@@ -51,6 +51,10 @@ class NutrientView extends StatefulWidget {
   /// Called when a custom toolbar item is tapped.
   final OnCustomToolbarItemTappedCallback? onCustomToolbarItemTapped;
 
+  /// Initial annotations to add when the document is first loaded.
+  /// These annotations will be added automatically after the document loads.
+  final List<Annotation>? initialAnnotations;
+
   /// Creates a new [NutrientView] widget.
   const NutrientView({
     Key? key,
@@ -64,6 +68,7 @@ class NutrientView extends StatefulWidget {
     this.onDocumentSaved,
     this.customToolbarItems = const [],
     this.onCustomToolbarItemTapped,
+    this.initialAnnotations,
   }) : super(key: key);
 
   @override
@@ -153,8 +158,15 @@ class _NutrientViewState extends State<NutrientView> {
         _addDefaultEventListeners(value);
         controller = NutrientViewControllerWeb(value);
         widget.onViewCreated?.call(controller);
-        widget.onDocumentLoaded
-            ?.call(PdfDocumentWeb(documentId: '', instance: value));
+
+        // Create document instance
+        final document = PdfDocumentWeb(documentId: '', instance: value);
+
+        // Add initial annotations if provided
+        await _addInitialAnnotations(document);
+
+        // Call user's callback
+        widget.onDocumentLoaded?.call(document);
       } catch (error) {
         if (!mounted) return;
         widget.onDocumentError?.call(error.toString());
@@ -244,5 +256,22 @@ class _NutrientViewState extends State<NutrientView> {
 
     webInstance.addEventListener('document.saveStateChange', saveStateListener);
     _eventListeners['document.saveStateChange'] = saveStateListener;
+  }
+
+  /// Adds initial annotations to the document after it loads
+  Future<void> _addInitialAnnotations(PdfDocument document) async {
+    if (widget.initialAnnotations == null ||
+        widget.initialAnnotations!.isEmpty) {
+      return;
+    }
+
+    try {
+      // Add all initial annotations
+      await document.addAnnotations(widget.initialAnnotations!);
+      debugPrint(
+          'Successfully added ${widget.initialAnnotations!.length} initial annotations');
+    } catch (e) {
+      debugPrint('Error adding initial annotations: $e');
+    }
   }
 }

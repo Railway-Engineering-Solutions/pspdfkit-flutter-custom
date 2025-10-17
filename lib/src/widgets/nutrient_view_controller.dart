@@ -85,8 +85,18 @@ abstract class NutrientViewController {
 
   /// Enters annotation creation mode for the specified annotation tool.
   /// If no tool is specified, defaults to [AnnotationTool.inkPen].
-  Future<bool?> enterAnnotationCreationMode([AnnotationTool? annotationTool]);
+  /// If [color] is provided, the annotation will be created with that color.
+  Future<bool?> enterAnnotationCreationMode(
+      [AnnotationTool? annotationTool, Color? color]);
 
   /// Exits annotation creation mode and returns to normal viewer interaction.
   Future<bool?> exitAnnotationCreationMode();
+
+  /// Enables or disables user interaction with the PDF viewer.
+  /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
+  /// Currently only supported on Web platform.
+  ///
+  /// [enabled] - true to enable user interaction, false to disable it.
+  /// Returns a [Future] that completes with a boolean indicating success.
+  Future<bool?> setUserInteractionEnabled(bool enabled);
 }

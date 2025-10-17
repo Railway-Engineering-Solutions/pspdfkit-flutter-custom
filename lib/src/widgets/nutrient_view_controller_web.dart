@@ -187,14 +187,14 @@ class NutrientViewControllerWeb extends NutrientViewController
 
   @override
   Future<bool?> enterAnnotationCreationMode(
-      [AnnotationTool? annotationTool]) async {
+      [AnnotationTool? annotationTool, Color? color]) async {
     try {
       if (annotationTool != null) {
-        await pspdfkitInstance.setToolMode(annotationTool);
+        await pspdfkitInstance.setToolMode(annotationTool, color);
       } else {
         // Use a default annotation tool (ink) if none is specified
         // This is consistent with native implementations
-        await pspdfkitInstance.setToolMode(AnnotationTool.inkPen);
+        await pspdfkitInstance.setToolMode(AnnotationTool.inkPen, color);
       }
       return Future.value(true);
     } catch (e) {
@@ -234,6 +234,19 @@ class NutrientViewControllerWeb extends NutrientViewController
   @override
   Future<double> getZoomScale(int pageIndex) {
     return pspdfkitInstance.getZoomScale(pageIndex);
+  }
+
+  @override
+  Future<bool?> setUserInteractionEnabled(bool enabled) async {
+    try {
+      await pspdfkitInstance.setUserInteractionEnabled(enabled);
+      return Future.value(true);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting user interaction: $e');
+      }
+      return Future.value(false);
+    }
   }
 
   // Helper method to process event data and invoke the user callback
