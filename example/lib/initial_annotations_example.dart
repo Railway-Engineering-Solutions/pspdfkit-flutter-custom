@@ -28,8 +28,11 @@ class _InitialAnnotationsExampleState extends State<InitialAnnotationsExample> {
           pageIndex: 0,
           bbox: [50, 50, 80, 80],
           createdAt: DateTime.now().toIso8601String(),
-          contents: 'Welcome! This is a pre-loaded note annotation.',
-          iconName: 'Comment',
+          text: TextContent(
+            format: TextFormat.plain,
+            value: 'Welcome! This is a pre-loaded note annotation.',
+          ),
+          icon: NoteIcon.comment,
           color: Colors.blue,
         ),
 
@@ -83,11 +86,14 @@ class _InitialAnnotationsExampleState extends State<InitialAnnotationsExample> {
           pageIndex: 0,
           bbox: [50, 450, 250, 500],
           createdAt: DateTime.now().toIso8601String(),
-          contents: 'Auto-loaded Text',
+          text: TextContent(
+            format: TextFormat.plain,
+            value: 'Auto-loaded Text',
+          ),
           fontSize: 16.0,
-          fontName: 'Helvetica',
-          color: Colors.purple,
-          fillColor: Colors.yellow.withOpacity(0.3),
+          font: 'Helvetica',
+          fontColor: Colors.purple,
+          backgroundColor: Colors.yellow.withOpacity(0.3),
         ),
 
         // 6. Rectangle shape
@@ -97,7 +103,7 @@ class _InitialAnnotationsExampleState extends State<InitialAnnotationsExample> {
           createdAt: DateTime.now().toIso8601String(),
           strokeColor: Colors.orange,
           fillColor: Colors.orange.withOpacity(0.2),
-          lineWidth: 2.0,
+          strokeWidth: 2.0,
         ),
       ];
 
