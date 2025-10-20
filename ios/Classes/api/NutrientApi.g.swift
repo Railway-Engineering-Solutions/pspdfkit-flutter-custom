@@ -2331,6 +2331,9 @@ protocol PdfDocumentApi {
   func save(outputPath: String?, options: DocumentSaveOptions?, completion: @escaping (Result<Bool, Error>) -> Void)
   /// Get the total number of pages in the document.
   func getPageCount(completion: @escaping (Result<Int64, Error>) -> Void)
+  /// Temporarily hides or shows all annotations in the document.
+  /// This is a visual-only operation - annotations are not removed from the document.
+  func setAnnotationsHidden(hidden: Bool, completion: @escaping (Result<Void, Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -2654,6 +2657,25 @@ class PdfDocumentApiSetup {
       }
     } else {
       getPageCountChannel.setMessageHandler(nil)
+    }
+    /// Temporarily hides or shows all annotations in the document.
+    /// This is a visual-only operation - annotations are not removed from the document.
+    let setAnnotationsHiddenChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.setAnnotationsHidden\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setAnnotationsHiddenChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let hiddenArg = args[0] as! Bool
+        api.setAnnotationsHidden(hidden: hiddenArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setAnnotationsHiddenChannel.setMessageHandler(nil)
     }
   }
 }

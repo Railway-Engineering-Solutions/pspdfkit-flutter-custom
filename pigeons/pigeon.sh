@@ -1,3 +1,3 @@
 #!/bin/bash
 
-dart run pigeion 
+dart run pigeon 

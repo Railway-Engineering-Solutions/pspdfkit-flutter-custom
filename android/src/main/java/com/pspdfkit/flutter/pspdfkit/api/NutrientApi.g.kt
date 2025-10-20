@@ -2463,6 +2463,11 @@ interface PdfDocumentApi {
   fun save(outputPath: String?, options: DocumentSaveOptions?, callback: (Result<Boolean>) -> Unit)
   /** Get the total number of pages in the document. */
   fun getPageCount(callback: (Result<Long>) -> Unit)
+  /**
+   * Temporarily hides or shows all annotations in the document.
+   * This is a visual-only operation - annotations are not removed from the document.
+   */
+  fun setAnnotationsHidden(hidden: Boolean, callback: (Result<Unit>) -> Unit)
 
   companion object {
     /** The codec used by PdfDocumentApi. */
@@ -2802,6 +2807,25 @@ interface PdfDocumentApi {
               } else {
                 val data = result.getOrNull()
                 reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.setAnnotationsHidden$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val hiddenArg = args[0] as Boolean
+            api.setAnnotationsHidden(hiddenArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
               }
             }
           }
