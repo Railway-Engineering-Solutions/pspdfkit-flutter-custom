@@ -157,4 +157,21 @@ abstract class PdfDocument {
   /// [query] is the search term.
   /// [pageIndex] optionally limits the search to a specific page.
   Future<List<Annotation>> searchAnnotations(String query, [int? pageIndex]);
+
+  /// Temporarily hides or shows all annotations in the document.
+  ///
+  /// This is a visual-only operation - annotations are not removed from the document
+  /// and will reappear when [hidden] is set to false.
+  ///
+  /// [hidden] - true to hide annotations, false to show them
+  ///
+  /// Example:
+  /// ```dart
+  /// // Hide all annotations
+  /// await document.setAnnotationsHidden(true);
+  ///
+  /// // Show annotations again
+  /// await document.setAnnotationsHidden(false);
+  /// ```
+  Future<void> setAnnotationsHidden(bool hidden);
 }

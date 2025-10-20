@@ -673,6 +673,11 @@ abstract class PdfDocumentApi {
   /// Get the total number of pages in the document.
   @async
   int getPageCount();
+
+  /// Temporarily hides or shows all annotations in the document.
+  /// This is a visual-only operation - annotations are not removed from the document.
+  @async
+  void setAnnotationsHidden(bool hidden);
 }
 
 @FlutterApi()

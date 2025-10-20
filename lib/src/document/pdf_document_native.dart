@@ -236,4 +236,9 @@ class PdfDocumentNative extends PdfDocument with AnnotationJsonConverter {
       [int? pageIndex]) async {
     return _annotationManager.searchAnnotations(query, pageIndex);
   }
+
+  @override
+  Future<void> setAnnotationsHidden(bool hidden) async {
+    return _api.setAnnotationsHidden(hidden);
+  }
 }

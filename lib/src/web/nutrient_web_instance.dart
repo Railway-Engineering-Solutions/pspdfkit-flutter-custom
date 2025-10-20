@@ -582,6 +582,25 @@ class NutrientWebInstance {
     }
   }
 
+  /// Temporarily hides or shows all annotations in the document.
+  ///
+  /// This is a visual-only operation - annotations are not removed from the document
+  /// and will reappear when [hidden] is set to false.
+  ///
+  /// [hidden] - true to hide annotations, false to show them
+  /// Throws an error if the operation fails.
+  Future<void> setAnnotationsHidden(bool hidden) async {
+    try {
+      await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
+        allowInterop((viewState) {
+          return viewState.callMethod('set', ['showAnnotations', !hidden]);
+        })
+      ]));
+    } catch (e) {
+      throw Exception('Failed to set annotations visibility: $e');
+    }
+  }
+
   /// Enables or disables user interaction with the PDF viewer.
   /// This completely prevents ALL interaction including clicking on existing annotations.
   /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
