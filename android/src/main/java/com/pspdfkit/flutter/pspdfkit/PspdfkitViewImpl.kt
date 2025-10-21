@@ -50,6 +50,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
     private var pdfUiFragment: PdfUiFragment? = null
     private var disposable: Disposable? = null
     private var eventDispatcher: FlutterEventsHelper? = null
+    private var defaultAnnotationColor: Int? = null
 
     /**
      * Sets the PdfFragment to be used by the controller.
@@ -684,6 +685,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
 
     override fun enterAnnotationCreationMode(
         annotationTool: AnnotationTool?,
+        color: Long?,
         callback: (Result<Boolean?>) -> Unit
     ) {
         val pdfFragment = pdfUiFragment?.pdfFragment
@@ -707,6 +709,29 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 // Enter annotation creation mode with the specific tool and variant
                 val androidTool = toolWithVariant.annotationTool
                 val variant = toolWithVariant.variant
+
+                // Use provided color, or fall back to default color if set
+                val colorToUse = color ?: defaultAnnotationColor?.toLong()
+                
+                // If a color is available (either provided or default), set it as the color for the annotation tool
+                if (colorToUse != null) {
+                    val styleManager = com.pspdfkit.ui.PdfActivity.getStyleManager()
+                    val colorInt = colorToUse.toInt()
+                    
+                    // Create a variant ID for the tool
+                    val variantId = if (variant != null) {
+                        com.pspdfkit.annotations.Annotation.ToolVariantID(androidTool, variant)
+                    } else {
+                        com.pspdfkit.annotations.Annotation.ToolVariantID(androidTool)
+                    }
+                    
+                    // Set the color for this tool
+                    styleManager.setLastUsedValue(
+                        colorInt,
+                        "color",
+                        variantId
+                    )
+                }
 
                 if (variant != null) {
                     // If we have both tool and variant, use them together
@@ -765,6 +790,23 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 Result.failure(
                     NutrientApiError(
                         "Error exiting annotation creation mode",
+                        e.message ?: "Unknown error"
+                    )
+                )
+            )
+        }
+    }
+
+    override fun setDefaultAnnotationColor(color: Long, callback: (Result<Boolean?>) -> Unit) {
+        try {
+            // Store the default color
+            defaultAnnotationColor = color.toInt()
+            callback(Result.success(true))
+        } catch (e: Exception) {
+            callback(
+                Result.failure(
+                    NutrientApiError(
+                        "Error setting default annotation color",
                         e.message ?: "Unknown error"
                     )
                 )

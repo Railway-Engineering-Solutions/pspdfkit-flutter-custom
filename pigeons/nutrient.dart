@@ -563,11 +563,12 @@ abstract class NutrientViewControllerApi {
   ///
   /// If [annotationTool] is provided, that specific tool will be activated.
   /// If no tool is provided, the default annotation tool will be used.
+  /// If [color] is provided (as ARGB integer), annotations will be created with that color.
   ///
   /// Returns a [Future] that completes with a boolean indicating whether
   /// entering annotation creation mode was successful.
   @async
-  bool? enterAnnotationCreationMode(AnnotationTool? annotationTool);
+  bool? enterAnnotationCreationMode(AnnotationTool? annotationTool, int? color);
 
   /// Exits annotation creation mode.
   ///
@@ -575,6 +576,15 @@ abstract class NutrientViewControllerApi {
   /// exiting annotation creation mode was successful.
   @async
   bool? exitAnnotationCreationMode();
+
+  /// Sets the default color for all annotation creation modes.
+  /// This color will be used for all annotations created after this is set,
+  /// unless a specific color is provided to enterAnnotationCreationMode.
+  ///
+  /// @param color The color to use as default, as ARGB integer
+  /// @return True if the color was set successfully, false otherwise.
+  @async
+  bool? setDefaultAnnotationColor(int color);
 
   /// Sets the annotation menu configuration for the current view controller.
   /// This configuration applies only to annotation menus in the current document view.

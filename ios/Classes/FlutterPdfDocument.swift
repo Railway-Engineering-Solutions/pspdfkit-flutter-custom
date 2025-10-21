@@ -264,6 +264,42 @@ public class FlutterPdfDocument: NSObject, PdfDocumentApi {
            }
     }
     
+    func setAnnotationsHidden(hidden: Bool, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let document = document else {
+            let error = NutrientApiError(code: "", message: "Document is nil", details: nil)
+            completion(.failure(error))
+            return
+        }
+        
+        do {
+            // Iterate through all pages and set the hidden flag on all annotations
+            for pageIndex in 0..<document.pageCount {
+                let annotations = document.annotationManager.annotations(at: PageIndex(pageIndex))
+                
+                for annotation in annotations {
+                    if hidden {
+                        // Add hidden flag to hide annotation
+                        annotation.flags.insert(.hidden)
+                    } else {
+                        // Remove hidden flag to show annotation
+                        annotation.flags.remove(.hidden)
+                    }
+                }
+            }
+            
+            // Notify the view controller to refresh if available
+            if let pdfViewController = pdfViewController {
+                // Reload the view to apply the changes
+                pdfViewController.reloadData()
+            }
+            
+            completion(.success(()))
+        } catch {
+            let apiError = NutrientApiError(code: "Error", message: "Failed to set annotations visibility: \(error.localizedDescription)", details: nil)
+            completion(.failure(apiError))
+        }
+    }
+    
     @objc public func register( binaryMessenger: FlutterBinaryMessenger){
         PdfDocumentApiSetup.setUp(binaryMessenger: binaryMessenger, api: self, messageChannelSuffix: document!.uid)
     }

@@ -37,7 +37,8 @@ import java.nio.charset.StandardCharsets
 import java.util.EnumSet
 
 class FlutterPdfDocument(
-    val pdfDocument: PdfDocument
+    val pdfDocument: PdfDocument,
+    var pdfFragment: com.pspdfkit.ui.PdfFragment? = null
 ) : PdfDocumentApi {
 
     companion object {
@@ -590,6 +591,45 @@ class FlutterPdfDocument(
             callback(Result.success(pdfDocument.pageCount.toLong()))
         } catch (e: Exception) {
             callback(Result.failure(e))
+        }
+    }
+
+    override fun setAnnotationsHidden(hidden: Boolean, callback: (Result<Unit>) -> Unit) {
+        try {
+            // PSPDFKit for Android doesn't have a direct API to hide all annotations visually
+            // without actually removing them. The annotations are always visible if they exist.
+            // However, we can set the noView flag on all annotations to hide them.
+            for (pageIndex in 0 until pdfDocument.pageCount) {
+                val annotations = pdfDocument.annotationProvider.getAnnotations(pageIndex)
+                for (annotation in annotations) {
+                    if (hidden) {
+                        // Add noView flag to hide annotation
+                        annotation.flags = annotation.flags or com.pspdfkit.annotations.AnnotationFlags.NOVIEW
+                    } else {
+                        // Remove noView flag to show annotation
+                        annotation.flags = annotation.flags and com.pspdfkit.annotations.AnnotationFlags.NOVIEW.inv()
+                    }
+                }
+            }
+            
+            // Refresh the view if we have access to the fragment
+            pdfFragment?.let { fragment ->
+                // Force redraw to apply the visibility changes
+                for (pageIndex in 0 until pdfDocument.pageCount) {
+                    fragment.notifyAnnotationHasChanged(pdfDocument.annotationProvider.getAnnotations(pageIndex).firstOrNull())
+                }
+            }
+            
+            callback(Result.success(Unit))
+        } catch (e: Exception) {
+            callback(
+                Result.failure(
+                    NutrientApiError(
+                        "Error while setting annotations visibility",
+                        e.message ?: "",
+                    )
+                )
+            )
         }
     }
 

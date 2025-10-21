@@ -28,6 +28,7 @@ class NutrientViewControllerNative
   final PageClickedCallback? onPageClickedListener;
   final Map<NutrientEvent, Function(dynamic eventData)> _eventListeners = {};
   final OnCustomToolbarItemTappedCallback? onCustomToolbarItemTappedListener;
+  Color? _defaultAnnotationColor;
 
   NutrientViewControllerNative(
     this._pspdfkitWidgetControllerApi, {
@@ -124,10 +125,10 @@ class NutrientViewControllerNative
   @override
   Future<bool?> enterAnnotationCreationMode(
       [AnnotationTool? annotationTool, Color? color]) {
-    // TODO: Implement color parameter support for native platforms
-    // For now, only pass the tool mode
-    return _pspdfkitWidgetControllerApi
-        .enterAnnotationCreationMode(annotationTool);
+    // Convert Color to ARGB integer if provided
+    final int? colorValue = color?.value;
+    return _pspdfkitWidgetControllerApi.enterAnnotationCreationMode(
+        annotationTool, colorValue);
   }
 
   @override
@@ -143,18 +144,15 @@ class NutrientViewControllerNative
   }
 
   @override
-  Future<bool?> setDefaultAnnotationColor(Color color) {
-    // Default color setting is currently only supported on Web platform
-    throw UnimplementedError(
-        'setDefaultAnnotationColor is currently only supported on Web platform');
+  Future<bool?> setDefaultAnnotationColor(Color color) async {
+    _defaultAnnotationColor = color;
+    // Convert Color to ARGB integer
+    final int colorValue = color.value;
+    return _pspdfkitWidgetControllerApi.setDefaultAnnotationColor(colorValue);
   }
 
   @override
-  Color? get defaultAnnotationColor {
-    // Default color getting is currently only supported on Web platform
-    throw UnimplementedError(
-        'defaultAnnotationColor is currently only supported on Web platform');
-  }
+  Color? get defaultAnnotationColor => _defaultAnnotationColor;
 
   @override
   void onDocumentError(String documentId, String error) {

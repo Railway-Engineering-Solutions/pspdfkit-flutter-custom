@@ -88,7 +88,7 @@ class FlutterPdfUiFragmentCallbacks(
 
         // Set up document API for Flutter access FIRST - before sending callbacks
         try {
-            flutterPdfDocument = FlutterPdfDocument(document)
+            flutterPdfDocument = FlutterPdfDocument(document, pdfFragment)
 
             // Register document instance for AnnotationManager access
             FlutterPdfDocument.registerDocument(document.uid, flutterPdfDocument!!)

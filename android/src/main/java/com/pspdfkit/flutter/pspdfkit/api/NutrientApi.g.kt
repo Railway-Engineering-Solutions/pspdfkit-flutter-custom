@@ -1953,11 +1953,12 @@ interface NutrientViewControllerApi {
    *
    * If [annotationTool] is provided, that specific tool will be activated.
    * If no tool is provided, the default annotation tool will be used.
+   * If [color] is provided (as ARGB integer), annotations will be created with that color.
    *
    * Returns a [Future] that completes with a boolean indicating whether
    * entering annotation creation mode was successful.
    */
-  fun enterAnnotationCreationMode(annotationTool: AnnotationTool?, callback: (Result<Boolean?>) -> Unit)
+  fun enterAnnotationCreationMode(annotationTool: AnnotationTool?, color: Long?, callback: (Result<Boolean?>) -> Unit)
   /**
    * Exits annotation creation mode.
    *
@@ -1965,6 +1966,15 @@ interface NutrientViewControllerApi {
    * exiting annotation creation mode was successful.
    */
   fun exitAnnotationCreationMode(callback: (Result<Boolean?>) -> Unit)
+  /**
+   * Sets the default color for all annotation creation modes.
+   * This color will be used for all annotations created after this is set,
+   * unless a specific color is provided to enterAnnotationCreationMode.
+   *
+   * @param color The color to use as default, as ARGB integer
+   * @return True if the color was set successfully, false otherwise.
+   */
+  fun setDefaultAnnotationColor(color: Long, callback: (Result<Boolean?>) -> Unit)
   /**
    * Sets the annotation menu configuration for the current view controller.
    * This configuration applies only to annotation menus in the current document view.
@@ -2346,7 +2356,8 @@ interface NutrientViewControllerApi {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val annotationToolArg = args[0] as AnnotationTool?
-            api.enterAnnotationCreationMode(annotationToolArg) { result: Result<Boolean?> ->
+            val colorArg = args[1] as Long?
+            api.enterAnnotationCreationMode(annotationToolArg, colorArg) { result: Result<Boolean?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -2365,6 +2376,26 @@ interface NutrientViewControllerApi {
         if (api != null) {
           channel.setMessageHandler { _, reply ->
             api.exitAnnotationCreationMode{ result: Result<Boolean?> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setDefaultAnnotationColor$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val colorArg = args[0] as Long
+            api.setDefaultAnnotationColor(colorArg) { result: Result<Boolean?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

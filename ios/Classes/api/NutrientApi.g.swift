@@ -1857,15 +1857,23 @@ protocol NutrientViewControllerApi {
   ///
   /// If [annotationTool] is provided, that specific tool will be activated.
   /// If no tool is provided, the default annotation tool will be used.
+  /// If [color] is provided (as ARGB integer), annotations will be created with that color.
   ///
   /// Returns a [Future] that completes with a boolean indicating whether
   /// entering annotation creation mode was successful.
-  func enterAnnotationCreationMode(annotationTool: AnnotationTool?, completion: @escaping (Result<Bool?, Error>) -> Void)
+  func enterAnnotationCreationMode(annotationTool: AnnotationTool?, color: Int64?, completion: @escaping (Result<Bool?, Error>) -> Void)
   /// Exits annotation creation mode.
   ///
   /// Returns a [Future] that completes with a boolean indicating whether
   /// exiting annotation creation mode was successful.
   func exitAnnotationCreationMode(completion: @escaping (Result<Bool?, Error>) -> Void)
+  /// Sets the default color for all annotation creation modes.
+  /// This color will be used for all annotations created after this is set,
+  /// unless a specific color is provided to enterAnnotationCreationMode.
+  ///
+  /// @param color The color to use as default, as ARGB integer
+  /// @return True if the color was set successfully, false otherwise.
+  func setDefaultAnnotationColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void)
   /// Sets the annotation menu configuration for the current view controller.
   /// This configuration applies only to annotation menus in the current document view.
   ///
@@ -2218,6 +2226,7 @@ class NutrientViewControllerApiSetup {
     ///
     /// If [annotationTool] is provided, that specific tool will be activated.
     /// If no tool is provided, the default annotation tool will be used.
+    /// If [color] is provided (as ARGB integer), annotations will be created with that color.
     ///
     /// Returns a [Future] that completes with a boolean indicating whether
     /// entering annotation creation mode was successful.
@@ -2226,7 +2235,8 @@ class NutrientViewControllerApiSetup {
       enterAnnotationCreationModeChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
         let annotationToolArg: AnnotationTool? = nilOrValue(args[0])
-        api.enterAnnotationCreationMode(annotationTool: annotationToolArg) { result in
+        let colorArg: Int64? = nilOrValue(args[1])
+        api.enterAnnotationCreationMode(annotationTool: annotationToolArg, color: colorArg) { result in
           switch result {
           case .success(let res):
             reply(wrapResult(res))
@@ -2256,6 +2266,29 @@ class NutrientViewControllerApiSetup {
       }
     } else {
       exitAnnotationCreationModeChannel.setMessageHandler(nil)
+    }
+    /// Sets the default color for all annotation creation modes.
+    /// This color will be used for all annotations created after this is set,
+    /// unless a specific color is provided to enterAnnotationCreationMode.
+    ///
+    /// @param color The color to use as default, as ARGB integer
+    /// @return True if the color was set successfully, false otherwise.
+    let setDefaultAnnotationColorChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setDefaultAnnotationColor\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setDefaultAnnotationColorChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let colorArg = args[0] as! Int64
+        api.setDefaultAnnotationColor(color: colorArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setDefaultAnnotationColorChannel.setMessageHandler(nil)
     }
     /// Sets the annotation menu configuration for the current view controller.
     /// This configuration applies only to annotation menus in the current document view.

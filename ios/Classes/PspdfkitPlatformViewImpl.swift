@@ -22,6 +22,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
     private var customToolbarItems: [[String: Any]] = [];
     private var annotationMenuConfiguration: AnnotationMenuConfigurationData? = nil;
     private var lastReportedPageIndex: Int? = nil;
+    private var defaultAnnotationColor: Int? = nil;
     
     
     @objc public func setViewController(controller: PDFViewController){
@@ -331,7 +332,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         eventsHelper?.removeEventListener(event: event)
     }
        
-    func enterAnnotationCreationMode(annotationTool: AnnotationTool?, completion: @escaping (Result<Bool?, Error>) -> Void) {
+    func enterAnnotationCreationMode(annotationTool: AnnotationTool?, color: Int64?, completion: @escaping (Result<Bool?, Error>) -> Void) {
         guard let pdfViewController = pdfViewController else {
             completion(.failure(NutrientApiError(code: "error", message: "PDF view controller is null", details: nil)))
             return
@@ -343,6 +344,21 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
                 
                 // Use AnnotationHelper to map the Flutter tool to iOS tool
                 if let toolWithVariant = AnnotationHelper.getIOSAnnotationToolWithVariantFromFlutterName(annotationTool) {
+                    // Use provided color, or fall back to default color if set
+                    let colorToUse = color ?? (defaultAnnotationColor != nil ? Int64(defaultAnnotationColor!) : nil)
+                    
+                    // If a color is available (either provided or default), set it as the color for the annotation tool
+                    if let colorValue = colorToUse {
+                        let styleManager = SDK.shared.styleManager
+                        let uiColor = UIColor(argb: Int(colorValue))
+                        
+                        // Create a tool variant ID
+                        let variantId = Annotation.ToolVariantID(tool: toolWithVariant.annotationTool, variant: toolWithVariant.variant)
+                        
+                        // Set the color for this tool
+                        styleManager.setLastUsedValue(uiColor, forProperty: "color", forKey: variantId)
+                    }
+                    
                     // Set the annotation tool
                     if pdfViewController.annotationToolbarController?.isToolbarVisible == false {
                         pdfViewController.annotationToolbarController?.showToolbar(animated: true)
@@ -412,6 +428,16 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
             completion(.success(true))
         } catch {
             completion(.failure(NutrientApiError(code: "error", message: "Error exiting annotation creation mode: \(error.localizedDescription)", details: nil)))
+        }
+    }
+    
+    func setDefaultAnnotationColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void) {
+        do {
+            // Store the default color
+            defaultAnnotationColor = Int(color)
+            completion(.success(true))
+        } catch {
+            completion(.failure(NutrientApiError(code: "error", message: "Error setting default annotation color: \(error.localizedDescription)", details: nil)))
         }
     }
     

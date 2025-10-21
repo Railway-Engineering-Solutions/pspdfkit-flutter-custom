@@ -150,10 +150,10 @@ class PspdfkitFlutterWidgetControllerImpl
   @override
   Future<bool?> enterAnnotationCreationMode(
       [AnnotationTool? annotationTool, Color? color]) {
-    // TODO: Implement color parameter support for native platforms
-    // For now, only pass the tool mode
-    return _pspdfkitWidgetControllerApi
-        .enterAnnotationCreationMode(annotationTool);
+    // Convert Color to ARGB integer if provided
+    final int? colorValue = color?.value;
+    return _pspdfkitWidgetControllerApi.enterAnnotationCreationMode(
+        annotationTool, colorValue);
   }
 
   @override
