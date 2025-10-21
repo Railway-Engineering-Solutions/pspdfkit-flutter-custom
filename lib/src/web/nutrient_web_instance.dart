@@ -593,7 +593,20 @@ class NutrientWebInstance {
     try {
       await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
         allowInterop((viewState) {
-          return viewState.callMethod('set', ['showAnnotations', !hidden]);
+          // PSPDFKit Web requires read-only mode to hide annotations
+          // Set both showAnnotations and readOnly
+          var updatedState =
+              viewState.callMethod('set', ['showAnnotations', !hidden]);
+
+          if (hidden) {
+            // When hiding annotations, enable read-only mode
+            updatedState = updatedState.callMethod('set', ['readOnly', true]);
+          } else {
+            // When showing annotations, disable read-only mode
+            updatedState = updatedState.callMethod('set', ['readOnly', false]);
+          }
+
+          return updatedState;
         })
       ]));
     } catch (e) {

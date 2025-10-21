@@ -801,6 +801,33 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
         try {
             // Store the default color
             defaultAnnotationColor = color.toInt()
+            
+            // Apply the color to all common annotation tools using StyleManager
+            val styleManager = com.pspdfkit.ui.PdfActivity.getStyleManager()
+            val colorInt = color.toInt()
+            
+            // List of common annotation tools to apply the default color to
+            val annotationTools = listOf(
+                com.pspdfkit.annotations.AnnotationTool.INK,
+                com.pspdfkit.annotations.AnnotationTool.HIGHLIGHT,
+                com.pspdfkit.annotations.AnnotationTool.UNDERLINE,
+                com.pspdfkit.annotations.AnnotationTool.STRIKEOUT,
+                com.pspdfkit.annotations.AnnotationTool.SQUIGGLY,
+                com.pspdfkit.annotations.AnnotationTool.NOTE,
+                com.pspdfkit.annotations.AnnotationTool.FREETEXT,
+                com.pspdfkit.annotations.AnnotationTool.SQUARE,
+                com.pspdfkit.annotations.AnnotationTool.CIRCLE,
+                com.pspdfkit.annotations.AnnotationTool.LINE,
+                com.pspdfkit.annotations.AnnotationTool.POLYGON,
+                com.pspdfkit.annotations.AnnotationTool.POLYLINE
+            )
+            
+            // Apply color to each tool
+            for (tool in annotationTools) {
+                val variantId = com.pspdfkit.annotations.Annotation.ToolVariantID(tool)
+                styleManager.setLastUsedValue(colorInt, "color", variantId)
+            }
+            
             callback(Result.success(true))
         } catch (e: Exception) {
             callback(

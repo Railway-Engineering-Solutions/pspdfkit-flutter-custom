@@ -435,6 +435,33 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         do {
             // Store the default color
             defaultAnnotationColor = Int(color)
+            
+            // Apply the color to all common annotation tools using StyleManager
+            let styleManager = SDK.shared.styleManager
+            let uiColor = UIColor(argb: Int(color))
+            
+            // List of common annotation tools to apply the default color to
+            let annotationTools: [Annotation.Tool] = [
+                .ink,
+                .highlight,
+                .underline,
+                .strikeOut,
+                .squiggly,
+                .note,
+                .freeText,
+                .square,
+                .circle,
+                .line,
+                .polygon,
+                .polyLine
+            ]
+            
+            // Apply color to each tool
+            for tool in annotationTools {
+                let variantId = Annotation.ToolVariantID(tool: tool, variant: nil)
+                styleManager.setLastUsedValue(uiColor, forProperty: "color", forKey: variantId)
+            }
+            
             completion(.success(true))
         } catch {
             completion(.failure(NutrientApiError(code: "error", message: "Error setting default annotation color: \(error.localizedDescription)", details: nil)))
