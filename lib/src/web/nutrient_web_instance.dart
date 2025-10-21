@@ -49,26 +49,10 @@ class NutrientWebInstance {
   Future<void> setDefaultAnnotationColor(Color color) async {
     _defaultAnnotationColor = color;
 
-    // Also set it in the current view state if we're in annotation mode
-    try {
-      await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
-        allowInterop((viewState) {
-          var colorClass = context['PSPDFKit']['Color'];
-          var pspdfkitColor = JsObject(colorClass, [
-            JsObject.jsify({
-              'r': (color.r * 255).round(),
-              'g': (color.g * 255).round(),
-              'b': (color.b * 255).round(),
-            })
-          ]);
-          return viewState.callMethod('set', ['strokeColor', pspdfkitColor]);
-        })
-      ]));
-    } catch (e) {
-      // If setting in view state fails, that's okay - the default is still set
-      if (kDebugMode) {
-        print('Warning: Could not set default color in view state: $e');
-      }
+    if (kDebugMode) {
+      print('Default annotation color set to: $color');
+      print(
+          'This color will be applied when entering annotation creation mode');
     }
   }
 
@@ -559,7 +543,7 @@ class NutrientWebInstance {
             // Determine which color to use: provided color, default color, or none
             Color? colorToUse = color ?? _defaultAnnotationColor;
 
-            // If we have a color (either provided or default), set the stroke color
+            // If we have a color (either provided or default), set both stroke and fill colors
             if (colorToUse != null) {
               var colorClass = context['PSPDFKit']['Color'];
               var pspdfkitColor = JsObject(colorClass, [
@@ -569,8 +553,12 @@ class NutrientWebInstance {
                   'b': (colorToUse.b * 255).round(),
                 })
               ]);
+              // Set stroke color (for most annotations)
               updatedState = updatedState
                   .callMethod('set', ['strokeColor', pspdfkitColor]);
+              // Also set fill color (for shapes like rectangle, circle, etc.)
+              updatedState =
+                  updatedState.callMethod('set', ['fillColor', pspdfkitColor]);
             }
 
             return updatedState;
