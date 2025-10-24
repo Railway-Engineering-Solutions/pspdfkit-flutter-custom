@@ -49,7 +49,7 @@ class NutrientWebInstance {
   Future<void> setDefaultAnnotationColor(Color color) async {
     _defaultAnnotationColor = color;
 
-    // Apply the color to PSPDFKit's StyleManager for all annotation tools
+    // Apply the color to PSPDFKit using setViewState with defaultAnnotationProperties
     try {
       var colorClass = context['PSPDFKit']['Color'];
       var pspdfkitColor = JsObject(colorClass, [
@@ -60,46 +60,62 @@ class NutrientWebInstance {
         })
       ]);
 
-      // Get the StyleManager from the instance
-      var styleManager = _nutrientInstance.callMethod('getStyleManager');
+      // Set default annotation properties using setViewState
+      await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
+        allowInterop((viewState) {
+          // Create default annotation properties with the color
+          var defaultProps = JsObject.jsify({
+            'ink': {
+              'strokeColor': pspdfkitColor,
+              'lineWidth': 2,
+            },
+            'highlight': {
+              'strokeColor': pspdfkitColor,
+            },
+            'underline': {
+              'strokeColor': pspdfkitColor,
+            },
+            'strikeOut': {
+              'strokeColor': pspdfkitColor,
+            },
+            'squiggly': {
+              'strokeColor': pspdfkitColor,
+            },
+            'note': {
+              'strokeColor': pspdfkitColor,
+            },
+            'freeText': {
+              'strokeColor': pspdfkitColor,
+            },
+            'square': {
+              'strokeColor': pspdfkitColor,
+              'fillColor': pspdfkitColor,
+            },
+            'circle': {
+              'strokeColor': pspdfkitColor,
+              'fillColor': pspdfkitColor,
+            },
+            'line': {
+              'strokeColor': pspdfkitColor,
+            },
+            'polygon': {
+              'strokeColor': pspdfkitColor,
+              'fillColor': pspdfkitColor,
+            },
+            'polyline': {
+              'strokeColor': pspdfkitColor,
+            },
+          });
 
-      // List of common annotation tools to apply the default color to
-      var annotationTools = [
-        'ink',
-        'highlight',
-        'underline',
-        'strikeOut',
-        'squiggly',
-        'note',
-        'freeText',
-        'square',
-        'circle',
-        'line',
-        'polygon',
-        'polyline'
-      ];
-
-      // Apply color to each tool using StyleManager
-      for (var tool in annotationTools) {
-        try {
-          // Create ToolVariantID for the tool
-          var toolVariantId = JsObject(
-              context['PSPDFKit']['Annotation']['ToolVariantID'], [tool]);
-
-          // Set the color using StyleManager's setLastUsedValue
-          styleManager.callMethod(
-              'setLastUsedValue', [pspdfkitColor, 'color', toolVariantId]);
-        } catch (e) {
-          // Some tools might not exist, continue with others
-          if (kDebugMode) {
-            print('Warning: Could not set color for tool $tool: $e');
-          }
-        }
-      }
+          // Update the view state with default annotation properties
+          return viewState
+              .callMethod('set', ['defaultAnnotationProperties', defaultProps]);
+        })
+      ]));
 
       if (kDebugMode) {
         print('Default annotation color set to: $color');
-        print('Applied to PSPDFKit StyleManager for all annotation tools');
+        print('Applied to PSPDFKit using defaultAnnotationProperties');
       }
     } catch (e) {
       if (kDebugMode) {
