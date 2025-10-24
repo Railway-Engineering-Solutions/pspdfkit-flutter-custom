@@ -61,7 +61,7 @@ class NutrientWebInstance {
       ]);
 
       // Get the StyleManager and apply color to all common annotation tools
-      var styleManager = _nutrientInstance.callMethod('getStyleManager');
+      // Use setStyleDefaults instead of StyleManager for PSPDFKit Web SDK
 
       // List of common annotation tools to apply the default color to
       var annotationTools = [
@@ -79,13 +79,17 @@ class NutrientWebInstance {
         'polyline'
       ];
 
-      // Apply color to each tool
+      // Apply color to each tool using setStyleDefaults
       for (var tool in annotationTools) {
         try {
-          var toolVariantId = JsObject(
-              context['PSPDFKit']['Annotation']['ToolVariantID'], [tool]);
-          styleManager.callMethod(
-              'setLastUsedValue', [pspdfkitColor, 'color', toolVariantId]);
+          // Use setStyleDefaults to set the default color for each tool
+          _nutrientInstance.callMethod('setStyleDefaults', [
+            tool,
+            JsObject.jsify({
+              'strokeColor': pspdfkitColor,
+              'fillColor': pspdfkitColor,
+            })
+          ]);
         } catch (e) {
           // Some tools might not exist, continue with others
           if (kDebugMode) {
@@ -96,7 +100,8 @@ class NutrientWebInstance {
 
       if (kDebugMode) {
         print('Default annotation color set to: $color');
-        print('Applied to PSPDFKit StyleManager for all annotation tools');
+        print(
+            'Applied to PSPDFKit using setStyleDefaults for all annotation tools');
       }
     } catch (e) {
       if (kDebugMode) {
