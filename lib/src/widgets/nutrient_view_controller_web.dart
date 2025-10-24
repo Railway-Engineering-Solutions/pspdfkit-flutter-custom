@@ -190,12 +190,15 @@ class NutrientViewControllerWeb extends NutrientViewController
   Future<bool?> enterAnnotationCreationMode(
       [AnnotationTool? annotationTool, Color? color]) async {
     try {
+      // Use provided color or fall back to default color
+      final colorToUse = color ?? pspdfkitInstance.defaultAnnotationColor;
+
       if (annotationTool != null) {
-        await pspdfkitInstance.setToolMode(annotationTool, color);
+        await pspdfkitInstance.setToolMode(annotationTool, colorToUse);
       } else {
         // Use a default annotation tool (ink) if none is specified
         // This is consistent with native implementations
-        await pspdfkitInstance.setToolMode(AnnotationTool.inkPen, color);
+        await pspdfkitInstance.setToolMode(AnnotationTool.inkPen, colorToUse);
       }
       return Future.value(true);
     } catch (e) {

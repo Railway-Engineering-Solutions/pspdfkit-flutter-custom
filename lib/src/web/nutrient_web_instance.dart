@@ -49,10 +49,60 @@ class NutrientWebInstance {
   Future<void> setDefaultAnnotationColor(Color color) async {
     _defaultAnnotationColor = color;
 
-    if (kDebugMode) {
-      print('Default annotation color set to: $color');
-      print(
-          'This color will be applied when entering annotation creation mode');
+    // Apply the color to PSPDFKit's StyleManager for all annotation tools
+    try {
+      var colorClass = context['PSPDFKit']['Color'];
+      var pspdfkitColor = JsObject(colorClass, [
+        JsObject.jsify({
+          'r': (color.r * 255).round(),
+          'g': (color.g * 255).round(),
+          'b': (color.b * 255).round(),
+        })
+      ]);
+
+      // Get the StyleManager and apply color to all common annotation tools
+      var styleManager = _nutrientInstance.callMethod('getStyleManager');
+
+      // List of common annotation tools to apply the default color to
+      var annotationTools = [
+        'ink',
+        'highlight',
+        'underline',
+        'strikeOut',
+        'squiggly',
+        'note',
+        'freeText',
+        'square',
+        'circle',
+        'line',
+        'polygon',
+        'polyline'
+      ];
+
+      // Apply color to each tool
+      for (var tool in annotationTools) {
+        try {
+          var toolVariantId = JsObject(
+              context['PSPDFKit']['Annotation']['ToolVariantID'], [tool]);
+          styleManager.callMethod(
+              'setLastUsedValue', [pspdfkitColor, 'color', toolVariantId]);
+        } catch (e) {
+          // Some tools might not exist, continue with others
+          if (kDebugMode) {
+            print('Warning: Could not set color for tool $tool: $e');
+          }
+        }
+      }
+
+      if (kDebugMode) {
+        print('Default annotation color set to: $color');
+        print('Applied to PSPDFKit StyleManager for all annotation tools');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error applying default color to PSPDFKit: $e');
+      }
+      // Still store the color even if PSPDFKit application fails
     }
   }
 
