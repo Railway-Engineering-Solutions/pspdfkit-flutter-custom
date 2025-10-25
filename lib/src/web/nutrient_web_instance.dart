@@ -1109,7 +1109,14 @@ class NutrientWebInstance {
       // Method 2: Use CSS pointer-events as additional protection
       // This is optional - if it fails, PSPDFKit API should still work
       try {
+        if (kDebugMode) {
+          print(
+              'Applying CSS pointer events blocking: ${enabled ? "enabled" : "disabled"}');
+        }
         _setCSSPointerEvents(enabled);
+        if (kDebugMode) {
+          print('CSS pointer events blocking completed successfully');
+        }
       } catch (e) {
         // CSS manipulation failed, but that's okay
         if (kDebugMode) {
@@ -1164,18 +1171,26 @@ class NutrientWebInstance {
         // If this fails, continue
       }
 
-      // Method 3: Try to find containers by looking for PSPDFKit-specific classes
+      // Method 3: Look for Flutter PDF widget containers (safer approach)
       try {
-        var allElements = document.callMethod('querySelectorAll', ['*']);
-        if (allElements != null && allElements['length'] > 0) {
-          for (int i = 0; i < allElements['length']; i++) {
-            var element = allElements[i];
-            if (element != null) {
-              var className = element['className'];
-              if (className != null &&
-                  (className.toString().contains('pspdfkit') ||
-                      className.toString().contains('nutrient'))) {
-                _applyCSSStyles(element, enabled);
+        // Look for Flutter's PDF widget containers specifically
+        var flutterContainers = document.callMethod('querySelectorAll', [
+          'div[data-flutter-view-type="platform-view"]',
+          'div[data-flutter-view-type="html"]',
+          'flt-glass-pane',
+          'flt-scene-host'
+        ]);
+
+        if (flutterContainers != null && flutterContainers['length'] > 0) {
+          for (int i = 0; i < flutterContainers['length']; i++) {
+            var container = flutterContainers[i];
+            if (container != null) {
+              // Only apply if this container contains PSPDFKit elements
+              var pspdfkitElements = container.callMethod('querySelectorAll', [
+                '.pspdfkit-container, [data-pspdfkit-container], .nutrient-container'
+              ]);
+              if (pspdfkitElements != null && pspdfkitElements['length'] > 0) {
+                _applyCSSStyles(container, enabled);
               }
             }
           }
@@ -1194,6 +1209,14 @@ class NutrientWebInstance {
   /// Applies CSS styles to disable/enable pointer events on an element
   void _applyCSSStyles(dynamic element, bool enabled) {
     try {
+      // Check if this element is part of a Flutter dialog or overlay
+      if (_isFlutterDialogElement(element)) {
+        if (kDebugMode) {
+          print('Skipping Flutter dialog element to avoid interference');
+        }
+        return;
+      }
+
       var style = element['style'];
       if (style != null && style is JsObject) {
         if (!enabled) {
@@ -1216,6 +1239,43 @@ class NutrientWebInstance {
       }
     } catch (e) {
       // If applying styles fails, continue
+    }
+  }
+
+  /// Checks if an element is part of a Flutter dialog or overlay
+  bool _isFlutterDialogElement(dynamic element) {
+    try {
+      // Check if element has Flutter dialog/overlay classes
+      var className = element['className'];
+      if (className != null) {
+        var classNameStr = className.toString().toLowerCase();
+        if (classNameStr.contains('dialog') ||
+            classNameStr.contains('overlay') ||
+            classNameStr.contains('modal') ||
+            classNameStr.contains('backdrop')) {
+          return true;
+        }
+      }
+
+      // Check if element is inside a Flutter dialog container
+      var parent = element['parentElement'];
+      while (parent != null) {
+        var parentClass = parent['className'];
+        if (parentClass != null) {
+          var parentClassStr = parentClass.toString().toLowerCase();
+          if (parentClassStr.contains('dialog') ||
+              parentClassStr.contains('overlay') ||
+              parentClassStr.contains('modal') ||
+              parentClassStr.contains('backdrop')) {
+            return true;
+          }
+        }
+        parent = parent['parentElement'];
+      }
+
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
