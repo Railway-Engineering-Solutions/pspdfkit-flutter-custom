@@ -29,7 +29,10 @@ class NutrientWebInstance {
   /// This color will be used when no specific color is provided
   Color? _defaultAnnotationColor;
 
-  NutrientWebInstance(this._nutrientInstance);
+  NutrientWebInstance(this._nutrientInstance) {
+    // Set up event listeners to monitor annotation creation mode changes
+    _setupColorInterceptionListeners();
+  }
 
   List<String> get availableDocumentInfoKeys {
     return _nutrientInstance.callMethod('getAvailableDocumentInfoKeys');
@@ -113,9 +116,22 @@ class NutrientWebInstance {
         })
       ]));
 
+      // Also set the current stroke and fill colors in the view state
+      // This ensures the color is immediately available for the current tool mode
+      await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
+        allowInterop((viewState) {
+          var updatedState =
+              viewState.callMethod('set', ['strokeColor', pspdfkitColor]);
+          updatedState =
+              updatedState.callMethod('set', ['fillColor', pspdfkitColor]);
+          return updatedState;
+        })
+      ]));
+
       if (kDebugMode) {
         print('Default annotation color set to: $color');
-        print('Applied to PSPDFKit using defaultAnnotationProperties');
+        print(
+            'Applied to PSPDFKit using defaultAnnotationProperties and current colors');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -127,6 +143,155 @@ class NutrientWebInstance {
 
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor => _defaultAnnotationColor;
+
+  /// Sets up event listeners to intercept annotation creation mode changes
+  /// and automatically apply the default color
+  void _setupColorInterceptionListeners() {
+    try {
+      // Listen for view state changes to detect when annotation creation mode is entered
+      _nutrientInstance.callMethod('addEventListener', [
+        'viewStateChange',
+        allowInterop((dynamic event) {
+          try {
+            // Check if we have a default color and if annotation creation mode is active
+            if (_defaultAnnotationColor != null && event != null) {
+              var viewState = event['viewState'];
+              if (viewState != null) {
+                var interactionMode = viewState['interactionMode'];
+
+                // Check if we're in an annotation creation mode
+                if (interactionMode != null &&
+                    interactionMode.toString().contains('Annotation')) {
+                  // Apply the default color to the current tool
+                  _applyDefaultColorToCurrentTool();
+                }
+              }
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error in viewStateChange listener: $e');
+            }
+          }
+        })
+      ]);
+
+      // Also listen for annotation creation events to ensure color is applied
+      _nutrientInstance.callMethod('addEventListener', [
+        'annotations.create',
+        allowInterop((dynamic event) {
+          try {
+            // When an annotation is created, ensure the default color is applied
+            if (_defaultAnnotationColor != null) {
+              _ensureDefaultColorApplied();
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error in annotations.create listener: $e');
+            }
+          }
+        })
+      ]);
+
+      if (kDebugMode) {
+        print('Color interception listeners set up successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Warning: Could not set up color interception listeners: $e');
+      }
+    }
+  }
+
+  /// Applies the default color to the current annotation tool
+  void _applyDefaultColorToCurrentTool() {
+    try {
+      if (_defaultAnnotationColor == null) return;
+
+      // Get the current view state
+      var currentViewState = _nutrientInstance['viewState'];
+      if (currentViewState != null) {
+        var interactionMode = currentViewState['interactionMode'];
+
+        if (interactionMode != null) {
+          // Convert PSPDFKit interaction mode back to Flutter AnnotationTool
+          var toolMode = _getAnnotationToolFromInteractionMode(interactionMode);
+          if (toolMode != null) {
+            // Apply the default color
+            _applyColorToTool(toolMode, _defaultAnnotationColor!);
+
+            if (kDebugMode) {
+              print('Applied default color to current tool: $toolMode');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error applying default color to current tool: $e');
+      }
+    }
+  }
+
+  /// Ensures the default color is applied to the current annotation tool
+  void _ensureDefaultColorApplied() {
+    try {
+      if (_defaultAnnotationColor == null) return;
+
+      // Force apply the default color using the ViewState API
+      promiseToFuture(_nutrientInstance.callMethod('setViewState', [
+        allowInterop((viewState) {
+          var colorClass = context['PSPDFKit']['Color'];
+          var pspdfkitColor = JsObject(colorClass, [
+            JsObject.jsify({
+              'r': (_defaultAnnotationColor!.r * 255).round(),
+              'g': (_defaultAnnotationColor!.g * 255).round(),
+              'b': (_defaultAnnotationColor!.b * 255).round(),
+            })
+          ]);
+
+          var updatedState =
+              viewState.callMethod('set', ['strokeColor', pspdfkitColor]);
+          updatedState =
+              updatedState.callMethod('set', ['fillColor', pspdfkitColor]);
+
+          return updatedState;
+        })
+      ]));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error ensuring default color applied: $e');
+      }
+    }
+  }
+
+  /// Converts PSPDFKit interaction mode to Flutter AnnotationTool
+  AnnotationTool? _getAnnotationToolFromInteractionMode(
+      dynamic interactionMode) {
+    try {
+      String modeString = interactionMode.toString();
+
+      // Map PSPDFKit interaction modes to Flutter AnnotationTool
+      if (modeString.contains('Ink')) return AnnotationTool.inkPen;
+      if (modeString.contains('Highlight')) return AnnotationTool.highlight;
+      if (modeString.contains('Underline')) return AnnotationTool.underline;
+      if (modeString.contains('StrikeOut')) return AnnotationTool.strikeOut;
+      if (modeString.contains('Squiggly')) return AnnotationTool.squiggly;
+      if (modeString.contains('Note')) return AnnotationTool.note;
+      if (modeString.contains('FreeText')) return AnnotationTool.freeText;
+      if (modeString.contains('Square')) return AnnotationTool.square;
+      if (modeString.contains('Circle')) return AnnotationTool.circle;
+      if (modeString.contains('Line')) return AnnotationTool.line;
+      if (modeString.contains('Polygon')) return AnnotationTool.polygon;
+      if (modeString.contains('Polyline')) return AnnotationTool.polyline;
+
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error converting interaction mode: $e');
+      }
+      return null;
+    }
+  }
 
   /// Saves the current state of the PSPDFKit instance.
   /// Throws an error if the operation fails.
@@ -600,6 +765,16 @@ class NutrientWebInstance {
           })
         ]));
       } else {
+        // Determine which color to use: provided color, default color, or none
+        Color? colorToUse = color ?? _defaultAnnotationColor;
+
+        if (kDebugMode) {
+          print('Setting tool mode: ${toolMode.toWebInteractionMode()}');
+          print('Using color: ${colorToUse?.toString() ?? "none"}');
+          print(
+              'Default color available: ${_defaultAnnotationColor?.toString() ?? "none"}');
+        }
+
         // Set the interaction mode using ViewState API
         await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
           allowInterop((viewState) {
@@ -608,9 +783,6 @@ class NutrientWebInstance {
               context['PSPDFKit']['InteractionMode']
                   [toolMode.toWebInteractionMode()]
             ]);
-
-            // Determine which color to use: provided color, default color, or none
-            Color? colorToUse = color ?? _defaultAnnotationColor;
 
             // If we have a color (either provided or default), set both stroke and fill colors
             if (colorToUse != null) {
@@ -622,20 +794,72 @@ class NutrientWebInstance {
                   'b': (colorToUse.b * 255).round(),
                 })
               ]);
+
               // Set stroke color (for most annotations)
               updatedState = updatedState
                   .callMethod('set', ['strokeColor', pspdfkitColor]);
               // Also set fill color (for shapes like rectangle, circle, etc.)
               updatedState =
                   updatedState.callMethod('set', ['fillColor', pspdfkitColor]);
+
+              if (kDebugMode) {
+                print(
+                    'Applied color to PSPDFKit: strokeColor and fillColor set');
+              }
             }
 
             return updatedState;
           })
         ]));
+
+        // Additional step: Force apply the color using PSPDFKit's style system
+        if (colorToUse != null) {
+          try {
+            await _applyColorToTool(toolMode, colorToUse);
+          } catch (e) {
+            if (kDebugMode) {
+              print(
+                  'Warning: Could not apply color to tool via style system: $e');
+            }
+          }
+        }
       }
     } catch (e) {
       throw Exception('Failed to set tool mode: $e');
+    }
+  }
+
+  /// Applies color to a specific annotation tool using PSPDFKit's style system
+  Future<void> _applyColorToTool(AnnotationTool toolMode, Color color) async {
+    try {
+      // Convert Flutter color to PSPDFKit color
+      var colorClass = context['PSPDFKit']['Color'];
+      var pspdfkitColor = JsObject(colorClass, [
+        JsObject.jsify({
+          'r': (color.r * 255).round(),
+          'g': (color.g * 255).round(),
+          'b': (color.b * 255).round(),
+        })
+      ]);
+
+      // Get the style manager if available
+      var styleManager = _nutrientInstance['styleManager'];
+      if (styleManager != null) {
+        // Map Flutter annotation tools to PSPDFKit tool names
+        String toolName = toolMode.toWebInteractionMode();
+
+        // Apply color to the tool's style
+        styleManager
+            .callMethod('setLastUsedValue', [pspdfkitColor, 'color', toolName]);
+
+        if (kDebugMode) {
+          print('Applied color to tool $toolName via style manager');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error applying color to tool: $e');
+      }
     }
   }
 
@@ -713,6 +937,14 @@ class NutrientWebInstance {
             // Disable page navigation
             updatedState =
                 updatedState.callMethod('set', ['allowPageNavigation', false]);
+
+            // Additional interaction disabling
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationMoving', false]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationResizing', false]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationDeletion', false]);
           } else {
             // Re-enable all interactions
             updatedState = updatedState.callMethod('set', ['readOnly', false]);
@@ -732,6 +964,12 @@ class NutrientWebInstance {
                 updatedState.callMethod('set', ['allowPanning', true]);
             updatedState =
                 updatedState.callMethod('set', ['allowPageNavigation', true]);
+            updatedState =
+                updatedState.callMethod('set', ['allowAnnotationMoving', true]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationResizing', true]);
+            updatedState = updatedState
+                .callMethod('set', ['allowAnnotationDeletion', true]);
           }
 
           return updatedState;
@@ -756,64 +994,98 @@ class NutrientWebInstance {
   /// Sets CSS pointer-events to completely prevent mouse interactions
   void _setCSSPointerEvents(bool enabled) {
     try {
-      // Try to find PSPDFKit container through DOM query
+      // Try multiple methods to find and disable PSPDFKit containers
       var document = context['document'];
-      var containers = document.callMethod('querySelectorAll', [
-        '.pspdfkit-container, [data-pspdfkit-container], .nutrient-container'
-      ]);
 
-      if (containers != null && containers['length'] > 0) {
-        // Apply to all found containers
-        for (int i = 0; i < containers['length']; i++) {
-          var container = containers[i];
-          if (container != null) {
-            var style = container['style'];
-            if (style != null) {
-              if (!enabled) {
-                // Disable all pointer events
-                style['pointerEvents'] = 'none';
-                style['userSelect'] = 'none';
-                style['touchAction'] = 'none';
-              } else {
-                // Re-enable pointer events
-                style['pointerEvents'] = 'auto';
-                style['userSelect'] = 'auto';
-                style['touchAction'] = 'auto';
-              }
-            }
-          }
-        }
-      } else {
-        // Fallback: Try to get container from PSPDFKit instance
+      // Method 1: Query for common PSPDFKit container selectors
+      var selectors = [
+        '.pspdfkit-container',
+        '[data-pspdfkit-container]',
+        '.nutrient-container',
+        '.pspdfkit-viewer',
+        '[data-pspdfkit-viewer]',
+        'iframe[src*="pspdfkit"]',
+        'iframe[src*="nutrient"]'
+      ];
+
+      for (var selector in selectors) {
         try {
-          var container = _nutrientInstance.callMethod('getContainerElement');
-          if (container != null && container is JsObject) {
-            var style = container['style'];
-            if (style != null && style is JsObject) {
-              if (!enabled) {
-                style['pointerEvents'] = 'none';
-                style['userSelect'] = 'none';
-                style['touchAction'] = 'none';
-              } else {
-                style['pointerEvents'] = 'auto';
-                style['userSelect'] = 'auto';
-                style['touchAction'] = 'auto';
+          var containers = document.callMethod('querySelectorAll', [selector]);
+          if (containers != null && containers['length'] > 0) {
+            for (int i = 0; i < containers['length']; i++) {
+              var container = containers[i];
+              if (container != null) {
+                _applyCSSStyles(container, enabled);
               }
             }
           }
         } catch (e) {
-          // If all methods fail, skip CSS manipulation
-          if (kDebugMode) {
-            print(
-                'Warning: Could not access PSPDFKit container for CSS manipulation');
+          // Continue with next selector if this one fails
+        }
+      }
+
+      // Method 2: Try to get container from PSPDFKit instance
+      try {
+        var container = _nutrientInstance.callMethod('getContainerElement');
+        if (container != null && container is JsObject) {
+          _applyCSSStyles(container, enabled);
+        }
+      } catch (e) {
+        // If this fails, continue
+      }
+
+      // Method 3: Try to find containers by looking for PSPDFKit-specific classes
+      try {
+        var allElements = document.callMethod('querySelectorAll', ['*']);
+        if (allElements != null && allElements['length'] > 0) {
+          for (int i = 0; i < allElements['length']; i++) {
+            var element = allElements[i];
+            if (element != null) {
+              var className = element['className'];
+              if (className != null &&
+                  (className.toString().contains('pspdfkit') ||
+                      className.toString().contains('nutrient'))) {
+                _applyCSSStyles(element, enabled);
+              }
+            }
           }
         }
+      } catch (e) {
+        // If this fails, that's okay
       }
     } catch (e) {
       // If CSS manipulation fails, that's okay - PSPDFKit API should handle it
       if (kDebugMode) {
         print('Warning: Could not set CSS pointer events: $e');
       }
+    }
+  }
+
+  /// Applies CSS styles to disable/enable pointer events on an element
+  void _applyCSSStyles(dynamic element, bool enabled) {
+    try {
+      var style = element['style'];
+      if (style != null && style is JsObject) {
+        if (!enabled) {
+          // Disable all pointer events
+          style['pointerEvents'] = 'none';
+          style['userSelect'] = 'none';
+          style['touchAction'] = 'none';
+          style['webkitUserSelect'] = 'none';
+          style['mozUserSelect'] = 'none';
+          style['msUserSelect'] = 'none';
+        } else {
+          // Re-enable pointer events
+          style['pointerEvents'] = 'auto';
+          style['userSelect'] = 'auto';
+          style['touchAction'] = 'auto';
+          style['webkitUserSelect'] = 'auto';
+          style['mozUserSelect'] = 'auto';
+          style['msUserSelect'] = 'auto';
+        }
+      }
+    } catch (e) {
+      // If applying styles fails, continue
     }
   }
 
