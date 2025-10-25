@@ -54,7 +54,18 @@ class NutrientWebInstance {
 
     // Apply the color to PSPDFKit using setViewState with defaultAnnotationProperties
     try {
-      var colorClass = context['PSPDFKit']['Color'];
+      // Try multiple approaches to get the Color class
+      var colorClass = _getPSPDFKitColorClass();
+      if (colorClass == null) {
+        if (kDebugMode) {
+          print(
+              'PSPDFKit Color class not available, trying alternative approach');
+        }
+        // Try alternative approach using direct color object creation
+        await _setDefaultColorAlternative(color);
+        return;
+      }
+
       var pspdfkitColor = JsObject(colorClass, [
         JsObject.jsify({
           'r': (color.r * 255).round(),
@@ -143,6 +154,101 @@ class NutrientWebInstance {
 
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor => _defaultAnnotationColor;
+
+  /// Tries multiple approaches to get the NutrientViewer Color class
+  dynamic _getPSPDFKitColorClass() {
+    try {
+      // Approach 1: Try to get Color class from the NutrientViewer instance
+      var instanceColorClass = _nutrientInstance['Color'];
+      if (instanceColorClass != null) {
+        if (kDebugMode) {
+          print('Found NutrientViewer Color class from instance');
+        }
+        return instanceColorClass;
+      }
+
+      // Approach 2: Try to get Color class from global NutrientViewer (correct global object)
+      var globalColorClass = context['NutrientViewer']?['Color'];
+      if (globalColorClass != null) {
+        if (kDebugMode) {
+          print('Found NutrientViewer Color class from global context');
+        }
+        return globalColorClass;
+      }
+
+      // Approach 3: Try to get Color class from global PSPDFKit (fallback)
+      var pspdfkitColorClass = context['PSPDFKit']?['Color'];
+      if (pspdfkitColorClass != null) {
+        if (kDebugMode) {
+          print('Found PSPDFKit Color class from global context');
+        }
+        return pspdfkitColorClass;
+      }
+
+      // Approach 4: Try to access Color class through the instance's constructor
+      var instanceConstructor = _nutrientInstance['constructor'];
+      if (instanceConstructor != null) {
+        var constructorColorClass = instanceConstructor['Color'];
+        if (constructorColorClass != null) {
+          if (kDebugMode) {
+            print('Found Color class from instance constructor');
+          }
+          return constructorColorClass;
+        }
+      }
+
+      if (kDebugMode) {
+        print('Color class not found in any location');
+        print(
+            'NutrientViewer object available: ${context['NutrientViewer'] != null}');
+        print('PSPDFKit object available: ${context['PSPDFKit'] != null}');
+        print('Instance object available: true');
+      }
+
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error accessing Color class: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Alternative approach to set default color when Color class is not available
+  Future<void> _setDefaultColorAlternative(Color color) async {
+    try {
+      if (kDebugMode) {
+        print('Using alternative color setting approach');
+      }
+
+      // Create a simple color object that PSPDFKit might accept
+      var colorObject = JsObject.jsify({
+        'r': (color.r * 255).round(),
+        'g': (color.g * 255).round(),
+        'b': (color.b * 255).round(),
+        'a': 1.0,
+      });
+
+      // Try to set the color using the instance's setViewState method
+      await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
+        allowInterop((viewState) {
+          var updatedState =
+              viewState.callMethod('set', ['strokeColor', colorObject]);
+          updatedState =
+              updatedState.callMethod('set', ['fillColor', colorObject]);
+          return updatedState;
+        })
+      ]));
+
+      if (kDebugMode) {
+        print('Alternative color setting completed');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Alternative color setting failed: $e');
+      }
+    }
+  }
 
   /// Sets up event listeners to intercept annotation creation mode changes
   /// and automatically apply the default color
@@ -240,21 +346,29 @@ class NutrientWebInstance {
       // Force apply the default color using the ViewState API
       promiseToFuture(_nutrientInstance.callMethod('setViewState', [
         allowInterop((viewState) {
-          var colorClass = context['PSPDFKit']['Color'];
-          var pspdfkitColor = JsObject(colorClass, [
-            JsObject.jsify({
-              'r': (_defaultAnnotationColor!.r * 255).round(),
-              'g': (_defaultAnnotationColor!.g * 255).round(),
-              'b': (_defaultAnnotationColor!.b * 255).round(),
-            })
-          ]);
+          var colorClass = _getPSPDFKitColorClass();
+          if (colorClass != null) {
+            var pspdfkitColor = JsObject(colorClass, [
+              JsObject.jsify({
+                'r': (_defaultAnnotationColor!.r * 255).round(),
+                'g': (_defaultAnnotationColor!.g * 255).round(),
+                'b': (_defaultAnnotationColor!.b * 255).round(),
+              })
+            ]);
 
-          var updatedState =
-              viewState.callMethod('set', ['strokeColor', pspdfkitColor]);
-          updatedState =
-              updatedState.callMethod('set', ['fillColor', pspdfkitColor]);
+            var updatedState =
+                viewState.callMethod('set', ['strokeColor', pspdfkitColor]);
+            updatedState =
+                updatedState.callMethod('set', ['fillColor', pspdfkitColor]);
 
-          return updatedState;
+            return updatedState;
+          } else {
+            if (kDebugMode) {
+              print(
+                  'PSPDFKit Color class not available, skipping color application');
+            }
+            return viewState;
+          }
         })
       ]));
     } catch (e) {
@@ -786,25 +900,32 @@ class NutrientWebInstance {
 
             // If we have a color (either provided or default), set both stroke and fill colors
             if (colorToUse != null) {
-              var colorClass = context['PSPDFKit']['Color'];
-              var pspdfkitColor = JsObject(colorClass, [
-                JsObject.jsify({
-                  'r': (colorToUse.r * 255).round(),
-                  'g': (colorToUse.g * 255).round(),
-                  'b': (colorToUse.b * 255).round(),
-                })
-              ]);
+              var colorClass = _getPSPDFKitColorClass();
+              if (colorClass != null) {
+                var pspdfkitColor = JsObject(colorClass, [
+                  JsObject.jsify({
+                    'r': (colorToUse.r * 255).round(),
+                    'g': (colorToUse.g * 255).round(),
+                    'b': (colorToUse.b * 255).round(),
+                  })
+                ]);
 
-              // Set stroke color (for most annotations)
-              updatedState = updatedState
-                  .callMethod('set', ['strokeColor', pspdfkitColor]);
-              // Also set fill color (for shapes like rectangle, circle, etc.)
-              updatedState =
-                  updatedState.callMethod('set', ['fillColor', pspdfkitColor]);
+                // Set stroke color (for most annotations)
+                updatedState = updatedState
+                    .callMethod('set', ['strokeColor', pspdfkitColor]);
+                // Also set fill color (for shapes like rectangle, circle, etc.)
+                updatedState = updatedState
+                    .callMethod('set', ['fillColor', pspdfkitColor]);
 
-              if (kDebugMode) {
-                print(
-                    'Applied color to PSPDFKit: strokeColor and fillColor set');
+                if (kDebugMode) {
+                  print(
+                      'Applied color to PSPDFKit: strokeColor and fillColor set');
+                }
+              } else {
+                if (kDebugMode) {
+                  print(
+                      'PSPDFKit Color class not available, skipping color application');
+                }
               }
             }
 
@@ -832,8 +953,17 @@ class NutrientWebInstance {
   /// Applies color to a specific annotation tool using PSPDFKit's style system
   Future<void> _applyColorToTool(AnnotationTool toolMode, Color color) async {
     try {
+      // Try to get PSPDFKit Color class using multiple approaches
+      var colorClass = _getPSPDFKitColorClass();
+      if (colorClass == null) {
+        if (kDebugMode) {
+          print(
+              'PSPDFKit Color class not available, skipping tool color application');
+        }
+        return;
+      }
+
       // Convert Flutter color to PSPDFKit color
-      var colorClass = context['PSPDFKit']['Color'];
       var pspdfkitColor = JsObject(colorClass, [
         JsObject.jsify({
           'r': (color.r * 255).round(),

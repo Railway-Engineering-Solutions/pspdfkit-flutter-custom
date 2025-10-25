@@ -22,7 +22,7 @@ const flutterWebProductId = 'FlutterForWeb';
 /// This class represents the [PSPDFKit](https://www.nutrient.io/api/web/PSPDFKit.html) object in the PSPDFKit Web SDK.
 /// All methods are static and can be accessed directly from the class.
 class NutrientWeb {
-  static final JsObject _nutrient = context['PSPDFKit'];
+  static final JsObject _nutrient = context['NutrientViewer'];
   static String? _pspdfkitLicenseKey;
 
   /// Sets the license key for PSPDFKit Web.
@@ -79,7 +79,7 @@ class NutrientWeb {
       _pspdfkitLicenseKey,
       configuration,
     );
-    JsObject nutrient = context['PSPDFKit'];
+    JsObject nutrient = context['NutrientViewer'];
     try {
       var instance = await promiseToFuture(
           nutrient.callMethod('load', [webConfiguration]));
