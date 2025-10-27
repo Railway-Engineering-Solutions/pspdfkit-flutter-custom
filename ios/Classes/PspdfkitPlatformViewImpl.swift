@@ -561,10 +561,10 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         
         if enabled {
             // Clear any annotation state to allow normal interaction
-            pdfViewController.annotationStateManager.clearState()
+            pdfViewController.annotationStateManager.setState(nil, variant: nil)
         } else {
             // Disable interactions by clearing annotation state and hiding toolbar
-            pdfViewController.annotationStateManager.clearState()
+            pdfViewController.annotationStateManager.setState(nil, variant: nil)
             if pdfViewController.annotationToolbarController?.isToolbarVisible == true {
                 pdfViewController.annotationToolbarController?.hideToolbar(animated: true)
             }
