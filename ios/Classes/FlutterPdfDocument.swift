@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import PSPDFKit
 
 @objc(FlutterPdfDocument)
 public class FlutterPdfDocument: NSObject, PdfDocumentApi {
@@ -274,16 +275,18 @@ public class FlutterPdfDocument: NSObject, PdfDocumentApi {
         do {
             // Iterate through all pages and set the hidden flag on all annotations
             for pageIndex in 0..<document.pageCount {
-                let annotations = document.annotationManager.annotations(at: PageIndex(pageIndex))
+                let annotations = document.annotations(at: PageIndex(pageIndex), type: .all)
                 
                 for annotation in annotations {
+                    var flags = annotation.flags
                     if hidden {
                         // Add hidden flag to hide annotation
-                        annotation.flags.insert(.hidden)
+                        flags.insert(.hidden)
                     } else {
                         // Remove hidden flag to show annotation
-                        annotation.flags.remove(.hidden)
+                        flags.remove(.hidden)
                     }
+                    annotation.flags = flags
                 }
             }
             
