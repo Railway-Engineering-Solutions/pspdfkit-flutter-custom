@@ -552,6 +552,26 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         AnnotationMenuHelper.setupAnnotationMenu(configuration: configuration)
     }
     
+    func setUserInteractionEnabled(enabled: Bool, completion: @escaping (Result<Bool?, Error>) -> Void) {
+        guard let pdfViewController = pdfViewController else {
+            let error = NutrientApiError(code: "error", message: "PDFViewController is nil", details: nil)
+            completion(.failure(error))
+            return
+        }
+        
+        do {
+            // Set read-only mode to disable all interactions
+            pdfViewController.readOnly = !enabled
+            
+            // Also disable annotation creation, editing, and selection
+            pdfViewController.annotationConfiguration.createMode = enabled ? .all : .none
+            
+            completion(.success(true))
+        } catch {
+            completion(.failure(NutrientApiError(code: "error", message: "Failed to set user interaction: \(error.localizedDescription)", details: nil)))
+        }
+    }
+    
     /// Updates the annotation menu configuration from a dictionary (called from Objective-C)
     /// - Parameter dictionary: The dictionary containing annotation menu configuration
     @objc public func setAnnotationMenuConfigurationFromDictionary(_ dictionary: [String: Any]) {

@@ -594,6 +594,15 @@ abstract class NutrientViewControllerApi {
   @async
   bool? setAnnotationMenuConfiguration(
       AnnotationMenuConfigurationData configuration);
+
+  /// Enables or disables user interaction with the PDF viewer.
+  /// This completely prevents ALL interaction including clicking on existing annotations.
+  /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
+  ///
+  /// @param enabled true to enable user interaction, false to disable it.
+  /// @return True if the interaction state was set successfully, false otherwise.
+  @async
+  bool? setUserInteractionEnabled(bool enabled);
 }
 
 @HostApi()

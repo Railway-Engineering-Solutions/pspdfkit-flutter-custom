@@ -1880,6 +1880,13 @@ protocol NutrientViewControllerApi {
   /// @param configuration The annotation menu configuration to apply.
   /// @return True if the configuration was set successfully, false otherwise.
   func setAnnotationMenuConfiguration(configuration: AnnotationMenuConfigurationData, completion: @escaping (Result<Bool?, Error>) -> Void)
+  /// Enables or disables user interaction with the PDF viewer.
+  /// This completely prevents ALL interaction including clicking on existing annotations.
+  /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
+  ///
+  /// @param enabled true to enable user interaction, false to disable it.
+  /// @return True if the interaction state was set successfully, false otherwise.
+  func setUserInteractionEnabled(enabled: Bool, completion: @escaping (Result<Bool?, Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -2311,6 +2318,29 @@ class NutrientViewControllerApiSetup {
       }
     } else {
       setAnnotationMenuConfigurationChannel.setMessageHandler(nil)
+    }
+    /// Enables or disables user interaction with the PDF viewer.
+    /// This completely prevents ALL interaction including clicking on existing annotations.
+    /// This is useful for preventing click-through when dialogs are shown over the PDF widget.
+    ///
+    /// @param enabled true to enable user interaction, false to disable it.
+    /// @return True if the interaction state was set successfully, false otherwise.
+    let setUserInteractionEnabledChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setUserInteractionEnabled\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setUserInteractionEnabledChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let enabledArg = args[0] as! Bool
+        api.setUserInteractionEnabled(enabled: enabledArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setUserInteractionEnabledChannel.setMessageHandler(nil)
     }
   }
 }

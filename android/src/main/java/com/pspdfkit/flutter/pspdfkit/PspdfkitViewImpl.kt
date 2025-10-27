@@ -881,4 +881,43 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
             )
         }
     }
+
+    override fun setUserInteractionEnabled(enabled: Boolean, callback: (Result<Boolean?>) -> Unit) {
+        val pdfFragment = pdfUiFragment?.pdfFragment
+        if (pdfFragment == null) {
+            callback(
+                Result.failure(
+                    NutrientApiError(
+                        "Error setting user interaction",
+                        "PDF fragment is null"
+                    )
+                )
+            )
+            return
+        }
+
+        try {
+            // Set read-only mode to disable all interactions
+            pdfFragment.setReadOnly(!enabled)
+            
+            // Also disable annotation creation, editing, and selection when interaction is disabled
+            if (!enabled) {
+                pdfFragment.setAnnotationCreationMode(com.pspdfkit.annotations.configuration.AnnotationCreationMode.NONE)
+            } else {
+                // Re-enable all annotation creation modes
+                pdfFragment.setAnnotationCreationMode(com.pspdfkit.annotations.configuration.AnnotationCreationMode.ALL)
+            }
+            
+            callback(Result.success(true))
+        } catch (e: Exception) {
+            callback(
+                Result.failure(
+                    NutrientApiError(
+                        "Error setting user interaction",
+                        e.message ?: "Unknown error"
+                    )
+                )
+            )
+        }
+    }
 }

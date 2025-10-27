@@ -1983,6 +1983,15 @@ interface NutrientViewControllerApi {
    * @return True if the configuration was set successfully, false otherwise.
    */
   fun setAnnotationMenuConfiguration(configuration: AnnotationMenuConfigurationData, callback: (Result<Boolean?>) -> Unit)
+  /**
+   * Enables or disables user interaction with the PDF viewer.
+   * This completely prevents ALL interaction including clicking on existing annotations.
+   * This is useful for preventing click-through when dialogs are shown over the PDF widget.
+   *
+   * @param enabled true to enable user interaction, false to disable it.
+   * @return True if the interaction state was set successfully, false otherwise.
+   */
+  fun setUserInteractionEnabled(enabled: Boolean, callback: (Result<Boolean?>) -> Unit)
 
   companion object {
     /** The codec used by NutrientViewControllerApi. */
@@ -2416,6 +2425,26 @@ interface NutrientViewControllerApi {
             val args = message as List<Any?>
             val configurationArg = args[0] as AnnotationMenuConfigurationData
             api.setAnnotationMenuConfiguration(configurationArg) { result: Result<Boolean?> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setUserInteractionEnabled$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val enabledArg = args[0] as Boolean
+            api.setUserInteractionEnabled(enabledArg) { result: Result<Boolean?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
