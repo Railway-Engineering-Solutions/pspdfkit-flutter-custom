@@ -350,7 +350,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
                     // If a color is available (either provided or default), set it as the color for the annotation tool
                     if let colorValue = colorToUse {
                         let styleManager = SDK.shared.styleManager
-                        let uiColor = UIColor(argb: Int(colorValue))
+                        let uiColor = UIColor(argb: colorValue)
                         
                         // Create a tool variant ID
                         let variantId = Annotation.ToolVariantID(tool: toolWithVariant.annotationTool, variant: toolWithVariant.variant)
@@ -438,7 +438,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
             
             // Apply the color to all common annotation tools using StyleManager
             let styleManager = SDK.shared.styleManager
-            let uiColor = UIColor(argb: Int(color))
+            let uiColor = UIColor(argb: color)
             
             // List of common annotation tools to apply the default color to
             let annotationTools: [Annotation.Tool] = [
@@ -559,17 +559,18 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
             return
         }
         
-        do {
-            // Set read-only mode to disable all interactions
-            pdfViewController.readOnly = !enabled
-            
-            // Also disable annotation creation, editing, and selection
-            pdfViewController.annotationConfiguration.createMode = enabled ? .all : .none
-            
-            completion(.success(true))
-        } catch {
-            completion(.failure(NutrientApiError(code: "error", message: "Failed to set user interaction: \(error.localizedDescription)", details: nil)))
+        if enabled {
+            // Clear any annotation state to allow normal interaction
+            pdfViewController.annotationStateManager.clearState()
+        } else {
+            // Disable interactions by clearing annotation state and hiding toolbar
+            pdfViewController.annotationStateManager.clearState()
+            if pdfViewController.annotationToolbarController?.isToolbarVisible == true {
+                pdfViewController.annotationToolbarController?.hideToolbar(animated: true)
+            }
         }
+        
+        completion(.success(true))
     }
     
     /// Updates the annotation menu configuration from a dictionary (called from Objective-C)
