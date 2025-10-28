@@ -11,12 +11,13 @@
 // of your plugin as a separate package, instead of inlining it in the same
 // package as the core of your plugin.
 // ignore: avoid_web_libraries_in_flutter
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'io_stub.dart' as io;
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/nutrient_flutter_platform_interface.dart';
 
-import 'web/nutrient_web.dart';
+import 'web/nutrient_web.dart'
+    if (dart.library.io) 'web/nutrient_web_stub.dart';
 
 /// A web implementation of the NutrientFlutterPlatform of the NutrientFlutter plugin.
 class NutrientFlutterWeb extends NutrientFlutterPlatform {
@@ -159,7 +160,7 @@ class NutrientFlutterWeb extends NutrientFlutterPlatform {
   }
 
   @override
-  Future<Directory> getTemporaryDirectory() {
+  Future<io.Directory> getTemporaryDirectory() {
     throw UnimplementedError(_notSupportedOnWebMessage);
   }
 
