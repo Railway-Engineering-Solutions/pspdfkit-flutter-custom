@@ -275,10 +275,10 @@ public class FlutterPdfDocument: NSObject, PdfDocumentApi {
         do {
             // Iterate through all pages and set the hidden flag on all annotations
             for pageIndex in 0..<document.pageCount {
-                let annotations = document.annotations(at: PageIndex(pageIndex), type: .all)
+                let annotations = document.annotationsForPage(at: PageIndex(pageIndex), type: .all)
                 
                 for annotation in annotations {
-                    var flags = annotation.flags
+                    var flags: Annotation.Flag = annotation.flags
                     if hidden {
                         // Add hidden flag to hide annotation
                         flags.insert(.hidden)
