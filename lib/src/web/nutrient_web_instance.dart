@@ -160,22 +160,20 @@ class NutrientWebInstance {
   void _setupColorInterceptionListeners() {
     try {
       // Listen for view state changes to detect when annotation creation mode is entered
+      // Note: viewState.change passes (prevState, state) as arguments
       _nutrientInstance.callMethod('addEventListener', [
         'viewState.change',
-        allowInterop((dynamic event) {
+        allowInterop((dynamic prevState, dynamic currentState) {
           try {
             // Check if we have a default color and if annotation creation mode is active
-            if (_defaultAnnotationColor != null && event != null) {
-              var viewState = event['viewState'];
-              if (viewState != null) {
-                var interactionMode = viewState['interactionMode'];
+            if (_defaultAnnotationColor != null && currentState != null) {
+              var interactionMode = currentState['interactionMode'];
 
-                // Check if we're in an annotation creation mode
-                if (interactionMode != null &&
-                    interactionMode.toString().contains('Annotation')) {
-                  // Apply the default color to the current tool
-                  _applyDefaultColorToCurrentTool();
-                }
+              // Check if we're in an annotation creation mode
+              if (interactionMode != null &&
+                  interactionMode.toString().contains('Annotation')) {
+                // Apply the default color to the current tool
+                _applyDefaultColorToCurrentTool();
               }
             }
           } catch (e) {
@@ -189,7 +187,7 @@ class NutrientWebInstance {
       // Also listen for annotation creation events to ensure color is applied
       _nutrientInstance.callMethod('addEventListener', [
         'annotations.create',
-        allowInterop((dynamic event) {
+        allowInterop((dynamic annotations) {
           try {
             // When an annotation is created, ensure the default color is applied
             if (_defaultAnnotationColor != null) {
