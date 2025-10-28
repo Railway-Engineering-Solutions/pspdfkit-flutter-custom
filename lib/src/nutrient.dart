@@ -11,7 +11,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'io_stub.dart';
 import 'package:nutrient_flutter/src/nutrient_flutter_platform_interface.dart';
 
 /// Nutrient plugin to load PDF and image documents on both platform iOS and Android.
