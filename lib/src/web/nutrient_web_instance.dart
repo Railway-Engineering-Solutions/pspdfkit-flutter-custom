@@ -25,6 +25,7 @@ import 'nutrient_web_utils.dart'
 /// It is returned by [PSPDFKit.load].
 class NutrientWebInstance {
   final JsObject _nutrientInstance;
+  JsObject? _interactionShield;
 
   /// Default color for all annotation operations
   /// This color will be used when no specific color is provided
@@ -1020,6 +1021,15 @@ class NutrientWebInstance {
           print('Warning: CSS pointer events manipulation failed: $e');
         }
       }
+
+      // Method 3: Add/remove an overlay interaction shield to fully block clicks
+      try {
+        _setInteractionShield(!enabled);
+      } catch (e) {
+        if (kDebugMode) {
+          print('Warning: Interaction shield manipulation failed: $e');
+        }
+      }
     } catch (e) {
       throw Exception('Failed to set user interaction: $e');
     }
@@ -1093,6 +1103,122 @@ class NutrientWebInstance {
         print('Warning: Could not set CSS pointer events: $e');
       }
     }
+  }
+
+  /// Adds or removes an overlay div that captures all pointer/keyboard events
+  /// to prevent click-through when dialogs are visible over the viewer.
+  void _setInteractionShield(bool enableShield) {
+    try {
+      var document = context['document'];
+      var container = _getContainerElement();
+      if (container == null) {
+        return;
+      }
+
+      if (!enableShield) {
+        // Remove if present
+        if (_interactionShield != null) {
+          try {
+            container.callMethod('removeChild', [_interactionShield]);
+          } catch (_) {}
+          _interactionShield = null;
+        }
+        return;
+      }
+
+      // Ensure container is a positioned element so absolute overlay anchors to it
+      var computedStyle = document
+          .callMethod('defaultView')
+          ?.callMethod('getComputedStyle', [container]);
+      var positionValue =
+          computedStyle != null ? computedStyle['position'] : null;
+      if (positionValue == null || positionValue == 'static') {
+        // Set position: relative minimally intrusive
+        container['style']?.callMethod('setProperty', ['position', 'relative']);
+      }
+
+      // Create shield if not existing
+      if (_interactionShield == null) {
+        var div = document.callMethod('createElement', ['div']);
+        // Style to cover the container
+        var style = div['style'];
+        style.callMethod('setProperty', ['position', 'absolute']);
+        style.callMethod('setProperty', ['top', '0']);
+        style.callMethod('setProperty', ['left', '0']);
+        style.callMethod('setProperty', ['right', '0']);
+        style.callMethod('setProperty', ['bottom', '0']);
+        style.callMethod('setProperty', ['width', '100%']);
+        style.callMethod('setProperty', ['height', '100%']);
+        style.callMethod('setProperty', ['z-index', '2147483647']);
+        style.callMethod('setProperty', ['background', 'transparent']);
+        style.callMethod('setProperty', ['pointer-events', 'auto']);
+        style.callMethod('setProperty', ['touch-action', 'none']);
+
+        // Prevent all interactions from bubbling to underlying viewer
+        var stopper = allowInterop((dynamic e) {
+          try {
+            e?.callMethod('stopImmediatePropagation');
+            e?.callMethod('stopPropagation');
+            e?['cancelBubble'] = true;
+            e?.callMethod('preventDefault');
+          } catch (_) {}
+          return false;
+        });
+
+        for (var eventName in [
+          'click',
+          'mousedown',
+          'mouseup',
+          'mousemove',
+          'wheel',
+          'pointerdown',
+          'pointerup',
+          'pointermove',
+          'touchstart',
+          'touchend',
+          'touchmove',
+          'keydown',
+          'keyup',
+          'keypress',
+          'contextmenu',
+        ]) {
+          div.callMethod('addEventListener', [eventName, stopper, true]);
+        }
+
+        container.callMethod('appendChild', [div]);
+        _interactionShield = div;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting interaction shield: $e');
+      }
+    }
+  }
+
+  /// Attempts to retrieve the PSPDFKit container element.
+  JsObject? _getContainerElement() {
+    try {
+      var container = _nutrientInstance.callMethod('getContainerElement');
+      if (container != null && container is JsObject) {
+        return container as JsObject;
+      }
+    } catch (_) {}
+
+    try {
+      var document = context['document'];
+      var selectors = [
+        '.pspdfkit-container',
+        '[data-pspdfkit-container]',
+        '.nutrient-container',
+        '.pspdfkit-viewer',
+        '[data-pspdfkit-viewer]'
+      ];
+      for (var selector in selectors) {
+        var el = document.callMethod('querySelector', [selector]);
+        if (el != null) return el as JsObject;
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Applies CSS styles to disable/enable pointer events on an element
