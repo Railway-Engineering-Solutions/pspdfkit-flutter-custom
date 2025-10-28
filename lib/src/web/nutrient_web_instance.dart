@@ -161,7 +161,7 @@ class NutrientWebInstance {
     try {
       // Listen for view state changes to detect when annotation creation mode is entered
       _nutrientInstance.callMethod('addEventListener', [
-        'viewStateChange',
+        'viewState.change',
         allowInterop((dynamic event) {
           try {
             // Check if we have a default color and if annotation creation mode is active
@@ -180,7 +180,7 @@ class NutrientWebInstance {
             }
           } catch (e) {
             if (kDebugMode) {
-              print('Error in viewStateChange listener: $e');
+              print('Error in viewState.change listener: $e');
             }
           }
         })
