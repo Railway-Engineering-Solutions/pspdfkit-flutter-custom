@@ -10,7 +10,7 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - lib/src/api/nutrient_api.g.dart
-#    - ../../core/Vendor
+  #    - ../../core/Vendor
   errors:
     invalid_assignment: error
     missing_return: error
@@ -24,5 +24,3 @@ linter:
     - sort_child_properties_last
     - unawaited_futures
     - use_full_hex_values_for_flutter_colors
-
-

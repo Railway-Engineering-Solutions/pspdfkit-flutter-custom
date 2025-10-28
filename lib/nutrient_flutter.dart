@@ -17,10 +17,7 @@ export 'src/widgets/nutrient_view.dart'
 
 // All other exports.
 export 'src/pdf_configuration.dart';
-export 'src/web/nutrient_web_configuration.dart';
-export 'src/web/office_conversion_settings.dart';
 export 'src/types.dart';
-export 'src/web/models/models.dart';
 export 'src/configuration_options.dart';
 export 'src/toolbar/toolbar.dart';
 
@@ -38,9 +35,18 @@ export 'src/api/nutrient_api.g.dart';
 export 'src/annotation_preset_configurations.dart';
 export 'src/annotations/annotations.dart';
 export 'src/annotations/annotation_menu_configuration.dart';
-export 'src/web/models/nutrient_web_events.dart';
 export 'src/nutrient.dart';
 
 export 'src/widgets/nutrient_view_controller.dart';
 export 'src/ai/ai_assistant_configuration.dart';
 export 'src/utils/missing_platform_directory_exception.dart';
+
+// Web-specific exports (only available on web)
+export 'src/web/nutrient_web_configuration.dart'
+    if (dart.library.html) 'src/web/nutrient_web_configuration.dart';
+export 'src/web/office_conversion_settings.dart'
+    if (dart.library.html) 'src/web/office_conversion_settings.dart';
+export 'src/web/models/models.dart'
+    if (dart.library.html) 'src/web/models/models.dart';
+export 'src/web/models/nutrient_web_events.dart'
+    if (dart.library.html) 'src/web/models/nutrient_web_events.dart';

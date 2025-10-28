@@ -20,3 +20,9 @@ class Directory {
 
   String get absolute => path;
 }
+
+/// Stub Registrar class to match flutter_web_plugins.dart
+/// Only used when building for non-web platforms
+class Registrar {
+  // Stub implementation
+}

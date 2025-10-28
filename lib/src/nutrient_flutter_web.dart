@@ -12,7 +12,8 @@
 // package as the core of your plugin.
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:io' if (dart.library.html) 'io_stub.dart' as io;
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart'
+    if (dart.library.io) 'io_stub.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/nutrient_flutter_platform_interface.dart';
 
