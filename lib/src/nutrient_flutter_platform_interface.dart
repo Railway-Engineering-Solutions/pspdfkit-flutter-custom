@@ -6,7 +6,7 @@
 ///  UNAUTHORIZED REPRODUCTION OR DISTRIBUTION IS SUBJECT TO CIVIL AND CRIMINAL PENALTIES.
 ///  This notice may not be removed from this file.
 ///
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'io_stub.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
