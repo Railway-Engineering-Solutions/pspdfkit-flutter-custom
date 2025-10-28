@@ -330,7 +330,11 @@ class NutrientWebInstance {
   Future<void> addAnnotation(Map<String, dynamic> jsonAnnotation,
       [Map<String, dynamic>? attachment]) async {
     try {
-      var annotation = context['PSPDFKit']['Annotations'].callMethod(
+      var annotationsClass = context['PSPDFKit']?['Annotations'];
+      if (annotationsClass == null) {
+        throw Exception('PSPDFKit Annotations class not available');
+      }
+      var annotation = annotationsClass.callMethod(
           'fromSerializableObject', [JsObject.jsify(jsonAnnotation)]);
       await promiseToFuture(
           _nutrientInstance.callMethod('create', [annotation]));
@@ -428,15 +432,24 @@ class NutrientWebInstance {
           if ((webKey == 'strokeColor' || webKey == 'fillColor') &&
               value is Map) {
             // Create a PSPDFKit.Color instance
-            var colorClass = context['PSPDFKit']['Color'];
-            value = JsObject(colorClass, [
-              JsObject.jsify({
-                'r': value['r'] ?? 0,
-                'g': value['g'] ?? 0,
-                'b': value['b'] ?? 0,
-                'a': value['a'] ?? 255,
-              })
-            ]);
+            var colorClass = context['PSPDFKit']?['Color'];
+            if (colorClass != null) {
+              value = JsObject(colorClass, [
+                JsObject.jsify({
+                  'r': value['r'] ?? 0,
+                  'g': value['g'] ?? 0,
+                  'b': value['b'] ?? 0,
+                  'a': value['a'] ?? 255,
+                })
+              ]);
+            } else {
+              // Skip color update if PSPDFKit Color class is not available
+              if (kDebugMode) {
+                print(
+                    'PSPDFKit Color class not available, skipping color property update for $webKey');
+              }
+              return; // Skip this property
+            }
           }
 
           // Handle flags specially - convert to appropriate format
@@ -1535,8 +1548,13 @@ class NutrientWebInstance {
   /// Returns a JSON object representing the annotation.
   dynamic webAnnotationToJSON(JsObject annotation) {
     // Convert the annotation to a JSON object
-    JsObject json = context['PSPDFKit']['Annotations']
-        .callMethod('toSerializableObject', [annotation]);
+    var annotationsClass = context['PSPDFKit']?['Annotations'];
+    if (annotationsClass == null) {
+      throw Exception('PSPDFKit Annotations class not available');
+    }
+
+    JsObject json =
+        annotationsClass.callMethod('toSerializableObject', [annotation]);
 
     final result = json.toJson();
 
@@ -1573,12 +1591,12 @@ class NutrientWebInstance {
         final typeString = entry.value;
 
         // Skip if the class doesn't exist
-        if (!context['PSPDFKit']['Annotations'].hasProperty(className)) {
+        if (!annotationsClass.hasProperty(className)) {
           continue;
         }
 
         // Get the annotation class
-        final annotationClass = context['PSPDFKit']['Annotations'][className];
+        final annotationClass = annotationsClass[className];
 
         // Check if the annotation is an instance of this class
         if (annotationClass != null &&
