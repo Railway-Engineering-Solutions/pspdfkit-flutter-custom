@@ -937,6 +937,9 @@ class NutrientWebInstance {
   /// [enabled] - true to enable user interaction, false to disable it.
   /// Throws an error if the operation fails.
   Future<void> setUserInteractionEnabled(bool enabled) async {
+    if (kDebugMode) {
+      print('🔧 setUserInteractionEnabled called: $enabled');
+    }
     try {
       // Method 1: Use PSPDFKit ViewState API to disable interactions
       await promiseToFuture(_nutrientInstance.callMethod('setViewState', [
@@ -1112,6 +1115,9 @@ class NutrientWebInstance {
       var document = context['document'];
       var container = _getContainerElement();
       if (container == null) {
+        if (kDebugMode) {
+          print('⚠️ Interaction shield: Could not find PSPDFKit container');
+        }
         return;
       }
 
@@ -1120,7 +1126,14 @@ class NutrientWebInstance {
         if (_interactionShield != null) {
           try {
             container.callMethod('removeChild', [_interactionShield]);
-          } catch (_) {}
+            if (kDebugMode) {
+              print('✅ Interaction shield removed');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('⚠️ Failed to remove interaction shield: $e');
+            }
+          }
           _interactionShield = null;
         }
         return;
@@ -1187,10 +1200,16 @@ class NutrientWebInstance {
 
         container.callMethod('appendChild', [div]);
         _interactionShield = div;
+
+        if (kDebugMode) {
+          print('✅ Interaction shield created and added to container');
+          print('   Shield z-index: 2147483647');
+          print('   Container: ${container.toString()}');
+        }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error setting interaction shield: $e');
+        print('❌ Error setting interaction shield: $e');
       }
     }
   }
@@ -1200,9 +1219,16 @@ class NutrientWebInstance {
     try {
       var container = _nutrientInstance.callMethod('getContainerElement');
       if (container != null && container is JsObject) {
-        return container as JsObject;
+        if (kDebugMode) {
+          print('📦 Found container via getContainerElement()');
+        }
+        return container;
       }
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ getContainerElement() failed: $e');
+      }
+    }
 
     try {
       var document = context['document'];
@@ -1215,9 +1241,18 @@ class NutrientWebInstance {
       ];
       for (var selector in selectors) {
         var el = document.callMethod('querySelector', [selector]);
-        if (el != null) return el as JsObject;
+        if (el != null) {
+          if (kDebugMode) {
+            print('📦 Found container via selector: $selector');
+          }
+          return el;
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ querySelector failed: $e');
+      }
+    }
     return null;
   }
 
