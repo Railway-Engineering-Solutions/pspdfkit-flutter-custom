@@ -8,11 +8,13 @@
 ///
 
 import 'dart:html';
+// ignore: deprecated_member_use
 import 'dart:js';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 
-import 'nutrient_web.dart';
-import 'nutrient_web_utils.dart';
+import 'nutrient_web.dart' if (dart.library.io) 'nutrient_web_stub.dart';
+import 'nutrient_web_utils.dart'
+    if (dart.library.io) 'nutrient_web_utils_stub.dart';
 
 /// This is a utility class used to convert a [PdfConfiguration] to a [PSPDFKit.Configuration](https://www.nutrient.io/api/web/PSPDFKit.Configuration.html) JsObject for Web.
 /// It is used in [NutrientWeb.load]. This class isolates the js interop code from the rest of the plugin.

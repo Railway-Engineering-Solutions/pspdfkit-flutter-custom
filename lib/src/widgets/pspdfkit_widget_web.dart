@@ -17,8 +17,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import '../document/pdf_document_web.dart';
-import '../web/nutrient_web.dart';
-import '../web/nutrient_web_instance.dart';
+import '../web/nutrient_web.dart'
+    if (dart.library.io) '../web/nutrient_web_stub.dart';
+import '../web/nutrient_web_instance.dart'
+    if (dart.library.io) '../web/nutrient_web_instance_stub.dart';
 import 'pspdfkit_widget_controller_web.dart';
 
 @Deprecated('Use NutrientView instead')

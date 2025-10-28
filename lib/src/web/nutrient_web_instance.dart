@@ -16,7 +16,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/document/document_save_options_extension.dart';
-import 'nutrient_web_utils.dart';
+import 'nutrient_web_utils.dart'
+    if (dart.library.io) 'nutrient_web_utils_stub.dart';
 
 /// This class is used to interact with a
 /// [PSPDFKit.Instance](https://www.nutrient.io/api/web/PSPDFKit.Instance.html) in

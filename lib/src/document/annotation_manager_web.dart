@@ -8,8 +8,10 @@
 import 'dart:async';
 
 import 'package:nutrient_flutter/nutrient_flutter.dart';
-import 'package:nutrient_flutter/src/web/nutrient_web_instance.dart';
-import 'package:nutrient_flutter/src/web/nutrient_web_utils.dart';
+import 'package:nutrient_flutter/src/web/nutrient_web_instance.dart'
+    if (dart.library.io) 'package:nutrient_flutter/src/web/nutrient_web_instance_stub.dart';
+import 'package:nutrient_flutter/src/web/nutrient_web_utils.dart'
+    if (dart.library.io) 'package:nutrient_flutter/src/web/nutrient_web_utils_stub.dart';
 
 /// Web implementation of AnnotationManager using dart:js interop.
 /// This class provides annotation management functionality using the Nutrient Web SDK

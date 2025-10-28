@@ -8,12 +8,15 @@
 ///
 
 import 'dart:html';
+// ignore: deprecated_member_use
 import 'dart:js';
 import '../pdf_configuration.dart';
 import 'models/nutrient_web_toolbar_item.dart';
 import 'nutrient_web_configuration_helper.dart';
-import 'nutrient_web_instance.dart';
-import 'nutrient_web_utils.dart';
+import 'nutrient_web_instance.dart'
+    if (dart.library.io) 'nutrient_web_instance_stub.dart';
+import 'nutrient_web_utils.dart'
+    if (dart.library.io) 'nutrient_web_utils_stub.dart';
 
 const flutterWebProductId = 'FlutterForWeb';
 

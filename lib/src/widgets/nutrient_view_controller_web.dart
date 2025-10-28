@@ -16,8 +16,10 @@ import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/events/nutrient_events_extension.dart';
 import '../document/annotation_json_converter.dart';
 import '../document/annotation_manager_web.dart';
-import '../web/nutrient_web.dart';
-import '../web/nutrient_web_instance.dart';
+import '../web/nutrient_web.dart'
+    if (dart.library.io) '../web/nutrient_web_stub.dart';
+import '../web/nutrient_web_instance.dart'
+    if (dart.library.io) '../web/nutrient_web_instance_stub.dart';
 
 /// A controller for a Nutrient viewer widget.
 class NutrientViewControllerWeb extends NutrientViewController

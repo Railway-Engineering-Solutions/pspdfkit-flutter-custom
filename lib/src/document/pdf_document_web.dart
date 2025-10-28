@@ -13,7 +13,8 @@ import 'package:nutrient_flutter/src/document/annotation_json_converter.dart';
 import 'package:nutrient_flutter/src/document/annotation_manager_web.dart';
 
 import '../annotations/annotation_utils.dart';
-import '../web/nutrient_web_instance.dart';
+import '../web/nutrient_web_instance.dart'
+    if (dart.library.io) '../web/nutrient_web_instance_stub.dart';
 
 class PdfDocumentWeb extends PdfDocument with AnnotationJsonConverter {
   final NutrientWebInstance _instance;
