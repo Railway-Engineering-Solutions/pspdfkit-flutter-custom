@@ -598,17 +598,19 @@ class FlutterPdfDocument(
         try {
             // PSPDFKit for Android doesn't have a direct API to hide all annotations visually
             // without actually removing them. The annotations are always visible if they exist.
-            // However, we can set the noView flag on all annotations to hide them.
+            // However, we can set the hidden flag on all annotations to hide them.
             for (pageIndex in 0 until pdfDocument.pageCount) {
                 val annotations = pdfDocument.annotationProvider.getAnnotations(pageIndex)
                 for (annotation in annotations) {
+                    val currentFlags = java.util.EnumSet.copyOf(annotation.flags)
                     if (hidden) {
-                        // Add noView flag to hide annotation
-                        annotation.flags = annotation.flags or com.pspdfkit.annotations.AnnotationFlags.NOVIEW
+                        // Add the hidden flag to hide annotation
+                        currentFlags.add(com.pspdfkit.annotations.AnnotationFlags.HIDDEN)
                     } else {
-                        // Remove noView flag to show annotation
-                        annotation.flags = annotation.flags and com.pspdfkit.annotations.AnnotationFlags.NOVIEW.inv()
+                        // Remove the hidden flag to show annotation
+                        currentFlags.remove(com.pspdfkit.annotations.AnnotationFlags.HIDDEN)
                     }
+                    annotation.flags = currentFlags
                 }
             }
             
@@ -616,7 +618,10 @@ class FlutterPdfDocument(
             pdfFragment?.let { fragment ->
                 // Force redraw to apply the visibility changes
                 for (pageIndex in 0 until pdfDocument.pageCount) {
-                    fragment.notifyAnnotationHasChanged(pdfDocument.annotationProvider.getAnnotations(pageIndex).firstOrNull())
+                    val pageAnnotations = pdfDocument.annotationProvider.getAnnotations(pageIndex)
+                    if (pageAnnotations.isNotEmpty()) {
+                        fragment.notifyAnnotationHasChanged(pageAnnotations.first())
+                    }
                 }
             }
             

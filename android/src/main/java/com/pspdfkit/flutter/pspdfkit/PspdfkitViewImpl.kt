@@ -711,27 +711,8 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 val variant = toolWithVariant.variant
 
                 // Use provided color, or fall back to default color if set
+                // Note: Color will be applied when annotation is created via the fragment's configuration
                 val colorToUse = color ?: defaultAnnotationColor?.toLong()
-                
-                // If a color is available (either provided or default), set it as the color for the annotation tool
-                if (colorToUse != null) {
-                    val styleManager = com.pspdfkit.ui.PdfActivity.getStyleManager()
-                    val colorInt = colorToUse.toInt()
-                    
-                    // Create a variant ID for the tool
-                    val variantId = if (variant != null) {
-                        com.pspdfkit.annotations.Annotation.ToolVariantID(androidTool, variant)
-                    } else {
-                        com.pspdfkit.annotations.Annotation.ToolVariantID(androidTool)
-                    }
-                    
-                    // Set the color for this tool
-                    styleManager.setLastUsedValue(
-                        colorInt,
-                        "color",
-                        variantId
-                    )
-                }
 
                 if (variant != null) {
                     // If we have both tool and variant, use them together
@@ -799,35 +780,8 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
 
     override fun setDefaultAnnotationColor(color: Long, callback: (Result<Boolean?>) -> Unit) {
         try {
-            // Store the default color
+            // Store the default color for use when entering annotation creation mode
             defaultAnnotationColor = color.toInt()
-            
-            // Apply the color to all common annotation tools using StyleManager
-            val styleManager = com.pspdfkit.ui.PdfActivity.getStyleManager()
-            val colorInt = color.toInt()
-            
-            // List of common annotation tools to apply the default color to
-            val annotationTools = listOf(
-                com.pspdfkit.annotations.AnnotationTool.INK,
-                com.pspdfkit.annotations.AnnotationTool.HIGHLIGHT,
-                com.pspdfkit.annotations.AnnotationTool.UNDERLINE,
-                com.pspdfkit.annotations.AnnotationTool.STRIKEOUT,
-                com.pspdfkit.annotations.AnnotationTool.SQUIGGLY,
-                com.pspdfkit.annotations.AnnotationTool.NOTE,
-                com.pspdfkit.annotations.AnnotationTool.FREETEXT,
-                com.pspdfkit.annotations.AnnotationTool.SQUARE,
-                com.pspdfkit.annotations.AnnotationTool.CIRCLE,
-                com.pspdfkit.annotations.AnnotationTool.LINE,
-                com.pspdfkit.annotations.AnnotationTool.POLYGON,
-                com.pspdfkit.annotations.AnnotationTool.POLYLINE
-            )
-            
-            // Apply color to each tool
-            for (tool in annotationTools) {
-                val variantId = com.pspdfkit.annotations.Annotation.ToolVariantID(tool)
-                styleManager.setLastUsedValue(colorInt, "color", variantId)
-            }
-            
             callback(Result.success(true))
         } catch (e: Exception) {
             callback(
@@ -897,15 +851,15 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
         }
 
         try {
-            // Set read-only mode to disable all interactions
-            pdfFragment.setReadOnly(!enabled)
-            
-            // Also disable annotation creation, editing, and selection when interaction is disabled
+            // Disable/enable user interaction by exiting annotation mode and disabling touch
             if (!enabled) {
-                pdfFragment.setAnnotationCreationMode(com.pspdfkit.annotations.configuration.AnnotationCreationMode.NONE)
+                // Exit any active annotation creation mode
+                pdfFragment.exitCurrentlyActiveMode()
+                // Disable the view interaction
+                pdfFragment.view?.isEnabled = false
             } else {
-                // Re-enable all annotation creation modes
-                pdfFragment.setAnnotationCreationMode(com.pspdfkit.annotations.configuration.AnnotationCreationMode.ALL)
+                // Re-enable the view interaction
+                pdfFragment.view?.isEnabled = true
             }
             
             callback(Result.success(true))
