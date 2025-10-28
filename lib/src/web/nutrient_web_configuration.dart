@@ -1,3 +1,4 @@
+import 'package:flutter/painting.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 
 ///
@@ -226,6 +227,14 @@ class PdfWebConfiguration {
   /// Annotation toolbar items callback. If not set, the default annotation toolbar items will be used.
   final NutrientWebAnnotationToolbarItemsCallback? annotationToolbarItems;
 
+  /// Default annotation stroke color. This will override PSPDFKit's built-in default color (#3A87FD).
+  /// If not set, PSPDFKit's default blue color will be used.
+  final Color? defaultAnnotationStrokeColor;
+
+  /// Default annotation fill color. This will override PSPDFKit's built-in default color (#AFFCFE).
+  /// If not set, PSPDFKit's default light cyan color will be used.
+  final Color? defaultAnnotationFillColor;
+
   PdfWebConfiguration(
       {this.xfdf,
       this.xfdfKeepCurrentAnnotations,
@@ -293,7 +302,9 @@ class PdfWebConfiguration {
       this.disableTextSelection,
       this.toolbarItems,
       this.annotationToolbarItems,
-      this.officeConversionSettings});
+      this.officeConversionSettings,
+      this.defaultAnnotationStrokeColor,
+      this.defaultAnnotationFillColor});
 
   Map<String, dynamic> toMap() {
     return {

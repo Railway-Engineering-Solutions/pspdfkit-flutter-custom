@@ -73,6 +73,50 @@ class WebConfigurationHelper {
       'zoomStep': configuration?.webConfiguration?.zoomStep,
     }..removeWhere((key, value) => value == null);
 
+    // Apply default annotation colors to initial ViewState if provided
+    // This overrides PSPDFKit's hardcoded defaults (#3A87FD for stroke, #AFFCFE for fill)
+    if (configuration?.webConfiguration?.defaultAnnotationStrokeColor != null ||
+        configuration?.webConfiguration?.defaultAnnotationFillColor != null) {
+      try {
+        var colorClass = context['PSPDFKit']?['Color'];
+        if (colorClass != null) {
+          // Set default stroke color
+          if (configuration?.webConfiguration?.defaultAnnotationStrokeColor !=
+              null) {
+            final strokeColor =
+                configuration!.webConfiguration!.defaultAnnotationStrokeColor!;
+            var pspdfkitStrokeColor = JsObject(colorClass, [
+              JsObject.jsify({
+                'r': (strokeColor.red).toInt(),
+                'g': (strokeColor.green).toInt(),
+                'b': (strokeColor.blue).toInt(),
+              })
+            ]);
+            viewState['strokeColor'] = pspdfkitStrokeColor;
+          }
+
+          // Set default fill color
+          if (configuration?.webConfiguration?.defaultAnnotationFillColor !=
+              null) {
+            final fillColor =
+                configuration!.webConfiguration!.defaultAnnotationFillColor!;
+            var pspdfkitFillColor = JsObject(colorClass, [
+              JsObject.jsify({
+                'r': (fillColor.red).toInt(),
+                'g': (fillColor.green).toInt(),
+                'b': (fillColor.blue).toInt(),
+              })
+            ]);
+            viewState['fillColor'] = pspdfkitFillColor;
+          }
+        }
+      } catch (e) {
+        // If color application fails, continue without it
+        // This ensures the viewer still loads even if color setting fails
+        print('Warning: Failed to apply default annotation colors: $e');
+      }
+    }
+
     // Creating a new PSPDFKit.ViewState JsObject with viewState.
     var initialViewState =
         JsObject(context['PSPDFKit']['ViewState'], [JsObject.jsify(viewState)]);
