@@ -138,9 +138,7 @@ class NutrientViewControllerNative
 
   @override
   Future<bool?> setUserInteractionEnabled(bool enabled) {
-    // User interaction control is currently only supported on Web platform
-    throw UnimplementedError(
-        'setUserInteractionEnabled is currently only supported on Web platform');
+    return _pspdfkitWidgetControllerApi.setUserInteractionEnabled(enabled);
   }
 
   @override
