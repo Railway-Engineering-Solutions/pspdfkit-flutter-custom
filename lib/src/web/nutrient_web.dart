@@ -7,9 +7,9 @@
 ///  This notice may not be removed from this file.
 ///
 
-import 'dart:html';
+import 'dart:html' if (dart.library.io) 'js_html_stub.dart';
 // ignore: deprecated_member_use
-import 'dart:js';
+import 'dart:js' if (dart.library.io) 'js_html_stub.dart';
 import '../pdf_configuration.dart';
 import 'models/nutrient_web_toolbar_item.dart';
 import 'nutrient_web_configuration_helper.dart';

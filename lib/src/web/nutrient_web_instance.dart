@@ -9,8 +9,8 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html';
-import 'dart:js';
+import 'dart:html' if (dart.library.io) 'js_html_stub.dart';
+import 'dart:js' if (dart.library.io) 'js_html_stub.dart';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';

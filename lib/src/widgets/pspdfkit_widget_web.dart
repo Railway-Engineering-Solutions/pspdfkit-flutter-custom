@@ -11,7 +11,7 @@
 library pspdfkit_widget_web;
 
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:html' as html if (dart.library.io) '../web/js_html_stub.dart';
 import 'dart:ui_web' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
