@@ -141,11 +141,19 @@ class FlutterEventsHelper: NSObject {
                 return true
             }
             if filtered.isEmpty { return }
-            let annotationJSON = PspdfkitFlutterConverter.instantJSON(
-                from: filtered)
+            // Build a minimal, cross-platform compatible payload similar to Android
+            let payload: [[String: Any]] = filtered.map { ann in
+                return [
+                    "id": ann.uuid as Any,
+                    "name": ann.name as Any,
+                    "pageIndex": Int(ann.pageIndex),
+                    // Provide a readable type hint; consumers shouldn't rely on this exact string
+                    "type": String(describing: type(of: ann))
+                ]
+            }
             nutrientCallback.onEvent(
                 event: NutrientEvent.annotationsDeleted,
-                data: ["annotations": annotationJSON]
+                data: ["annotations": payload]
             ) { _ in }
         }
     }
