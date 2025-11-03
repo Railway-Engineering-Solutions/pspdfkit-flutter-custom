@@ -70,8 +70,15 @@ class FlutterEventsHelper(
                         if (id.isNotEmpty()) {
                             recentDeletedEvents[id] = now
                         }
-                        // Align payload with iOS and other events: always provide 'annotations' list
-                        sendEvent(event, mapOf("annotations" to listOf(annotation.toInstantJson())))
+                        // For removed annotations, creating Instant JSON may fail since it's detached.
+                        // Send minimal payload compatible with consumers; Dart won't convert delete to Annotation.
+                        val payload = mapOf(
+                            "id" to annotation.uuid,
+                            "name" to annotation.name,
+                            "type" to annotation.type.name,
+                            "pageIndex" to annotation.pageIndex
+                        )
+                        sendEvent(event, mapOf("annotations" to listOf(payload)))
                     }
                 )
                 pdfFragment.document?.invalidateCache()
