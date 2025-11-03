@@ -383,10 +383,11 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
         }
 
         try {
-            val parsed: Map<String, Any?> = kotlinx.serialization.json.Json.decodeFromString(jsonAnnotation)
-            val pageIndex = (parsed["pageIndex"] as? Number)?.toInt()
-            val id = parsed["id"] as? String
-            val name = parsed["name"] as? String
+            // Parse using JsonElement to avoid serializers for Any
+            val element = kotlinx.serialization.json.Json.parseToJsonElement(jsonAnnotation).jsonObject
+            val pageIndex = element["pageIndex"]?.jsonPrimitive?.intOrNull
+            val id = element["id"]?.jsonPrimitive?.contentOrNull
+            val name = element["name"]?.jsonPrimitive?.contentOrNull
 
             if (pageIndex == null || (id == null && name == null)) {
                 callback(Result.failure(NutrientApiError("Invalid annotation identifier", "Expected pageIndex and id or name")))

@@ -387,17 +387,19 @@ class FlutterPdfDocument(
 
     override fun removeAnnotation(jsonAnnotation: String, callback: (Result<Boolean?>) -> Unit) {
         try {
-            val annotationObject = Json.decodeFromString<Map<String,Any>>(jsonAnnotation)
-            // Get name or UUID
-            val name = annotationObject["name"] as? String?
-            val uuid = annotationObject["id"] as? String?
-
+            // Parse JSON safely without requiring serializers for Any
+            val element = Json.parseToJsonElement(jsonAnnotation).jsonObject
+            val name = element["name"]?.jsonPrimitive?.contentOrNull
+            val uuid = element["id"]?.jsonPrimitive?.contentOrNull
             if (name == null && uuid == null) {
                 callback(Result.failure(Exception("Annotation has no identifier (name or uuid)")))
                 return
             }
-
-            val pageIndex = (annotationObject["pageIndex"] as Number).toInt()
+            val pageIndex = element["pageIndex"]?.jsonPrimitive?.intOrNull
+            if (pageIndex == null) {
+                callback(Result.failure(Exception("Annotation pageIndex is missing")))
+                return
+            }
             val allAnnotations = pdfDocument.annotationProvider.getAnnotations(pageIndex)
 
             // First try to find by name, then by UUID if available
