@@ -333,11 +333,12 @@ class PspdfkitFlutterHelper: NSObject {
         }
         
         // Try to get identifier information, looking for name first (for consistency)
+        // Web platform uses "id" field, iOS/Android use "uuid" field - support both
         let name = dict["name"] as? String
-        let uuid = dict["uuid"] as? String
+        let uuid = dict["uuid"] as? String ?? dict["id"] as? String
         
         if name == nil && uuid == nil {
-            throw NutrientApiError(code: "", message: "Annotation has no identifier (name or uuid).", details: nil)
+            throw NutrientApiError(code: "", message: "Annotation has no identifier (name, uuid, or id).", details: nil)
         }
         
         let allAnnotations = document.allAnnotations(of: .all).values.flatMap { $0 }

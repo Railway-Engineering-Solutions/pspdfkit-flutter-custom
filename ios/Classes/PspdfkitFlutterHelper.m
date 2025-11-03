@@ -530,13 +530,19 @@
     if ([jsonAnnotation isKindOfClass:NSString.class]) {
         NSData *jsonData = [jsonAnnotation dataUsingEncoding:NSUTF8StringEncoding];
         NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:NSJSONReadingAllowFragments error:nil];
-        if (jsonDict) { annotationUUID = jsonDict[@"uuid"]; }
+        if (jsonDict) { 
+            // Web platform uses "id" field, iOS/Android use "uuid" field - support both
+            annotationUUID = jsonDict[@"uuid"] ?: jsonDict[@"id"]; 
+        }
     } else if ([jsonAnnotation isKindOfClass:NSDictionary.class])  {
-        if (jsonAnnotation) { annotationUUID = jsonAnnotation[@"uuid"]; }
+        if (jsonAnnotation) { 
+            // Web platform uses "id" field, iOS/Android use "uuid" field - support both
+            annotationUUID = jsonAnnotation[@"uuid"] ?: jsonAnnotation[@"id"]; 
+        }
     }
 
     if (annotationUUID.length <= 0) {
-        return [FlutterError errorWithCode:@"" message:@"Invalid annotation UUID." details:nil];
+        return [FlutterError errorWithCode:@"" message:@"Invalid annotation UUID (requires uuid or id field)." details:nil];
     }
 
     BOOL success = NO;
