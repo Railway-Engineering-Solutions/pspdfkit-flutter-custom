@@ -45,6 +45,11 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.Locale
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.contentOrNull
 
 class PspdfkitViewImpl : NutrientViewControllerApi {
     private var pdfUiFragment: PdfUiFragment? = null
