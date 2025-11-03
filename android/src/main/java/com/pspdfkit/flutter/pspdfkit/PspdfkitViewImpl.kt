@@ -372,10 +372,40 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
 
     override fun removeAnnotation(jsonAnnotation: String, callback: (Result<Boolean?>) -> Unit) {
         val document = requireNotNull(pdfUiFragment?.pdfFragment?.document)
-        //Annotation from JSON.
-        val annotation = document.annotationProvider.createAnnotationFromInstantJson(jsonAnnotation)
-        document.annotationProvider.removeAnnotationFromPage(annotation)
-        callback(Result.success(true))
+        try {
+            // First, try the fast path: construct from Instant JSON if full JSON was provided
+            val annotation = document.annotationProvider.createAnnotationFromInstantJson(jsonAnnotation)
+            document.annotationProvider.removeAnnotationFromPage(annotation)
+            callback(Result.success(true))
+            return
+        } catch (_: Exception) {
+            // Fall back to lookup by id/name + pageIndex
+        }
+
+        try {
+            val parsed: Map<String, Any?> = kotlinx.serialization.json.Json.decodeFromString(jsonAnnotation)
+            val pageIndex = (parsed["pageIndex"] as? Number)?.toInt()
+            val id = parsed["id"] as? String
+            val name = parsed["name"] as? String
+
+            if (pageIndex == null || (id == null && name == null)) {
+                callback(Result.failure(NutrientApiError("Invalid annotation identifier", "Expected pageIndex and id or name")))
+                return
+            }
+
+            val annotations = document.annotationProvider.getAnnotations(pageIndex).toList()
+            val toRemove = annotations.firstOrNull { it.uuid == id || it.name == name }
+
+            if (toRemove == null) {
+                callback(Result.failure(NutrientApiError("Annotation not found", "No annotation matched id/name on page $pageIndex")))
+                return
+            }
+
+            document.annotationProvider.removeAnnotationFromPage(toRemove)
+            callback(Result.success(true))
+        } catch (e: Exception) {
+            callback(Result.failure(e))
+        }
     }
 
     override fun getAnnotations(pageIndex: Long, type: String, callback: (Result<Any>) -> Unit) {

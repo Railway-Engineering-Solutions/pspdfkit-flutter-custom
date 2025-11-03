@@ -21,6 +21,9 @@ class FlutterEventsHelper(
     private val eventCallbacks: NutrientEventsCallbacks? = null,
     private val annotationMenuHandler: AnnotationMenuHandler? = null
 ) {
+    // Simple de-duplication cache for delete events: id -> lastSentMillis
+    private val recentDeletedEvents: MutableMap<String, Long> = mutableMapOf()
+    private val deleteDedupWindowMs: Long = 350
 
     // Map to store event listeners by event type
     private val eventsMap: MutableMap<NutrientEvent, Any> = mutableMapOf()
@@ -57,11 +60,18 @@ class FlutterEventsHelper(
             NutrientEvent.ANNOTATIONS_DELETED -> {
                 createAnnotationListener(pdfFragment, event,
                     onRemoved = { annotation ->
-                        sendEvent(event, mapOf("deleted" to mapOf(
-                            "name" to annotation.name,
-                            "type" to annotation.type.name,
-                            "id" to annotation.uuid
-                        )))
+                        val id = annotation.uuid ?: annotation.name ?: ""
+                        val now = System.currentTimeMillis()
+                        val last = recentDeletedEvents[id] ?: 0L
+                        if (id.isNotEmpty() && now - last < deleteDedupWindowMs) {
+                            // Drop duplicate within dedup window
+                            return@createAnnotationListener
+                        }
+                        if (id.isNotEmpty()) {
+                            recentDeletedEvents[id] = now
+                        }
+                        // Align payload with iOS and other events: always provide 'annotations' list
+                        sendEvent(event, mapOf("annotations" to listOf(annotation.toInstantJson())))
                     }
                 )
                 pdfFragment.document?.invalidateCache()

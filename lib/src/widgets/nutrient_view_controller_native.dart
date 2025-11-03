@@ -186,6 +186,7 @@ class NutrientViewControllerNative
       if (data is Map &&
           (event == NutrientEvent.annotationsCreated ||
               event == NutrientEvent.annotationsUpdated ||
+              event == NutrientEvent.annotationsDeleted ||
               event == NutrientEvent.annotationsSelected ||
               event == NutrientEvent.annotationsDeselected)) {
         try {

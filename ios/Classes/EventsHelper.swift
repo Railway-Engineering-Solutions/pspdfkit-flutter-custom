@@ -23,6 +23,10 @@ class FlutterEventsHelper: NSObject {
     // Flag to track if cleanup has been performed
     private var isCleanedUp = false
 
+    // Deduplication cache for delete events: id -> lastSentTime
+    private var recentDeletedEvents: [String: TimeInterval] = [:]
+    private let deleteDedupWindow: TimeInterval = 0.35
+
     public init(nutrientCallback: NutrientEventsCallbacks?) {
         self.nutrientCallback = nutrientCallback
         super.init()
@@ -125,8 +129,20 @@ class FlutterEventsHelper: NSObject {
         guard !isCleanedUp, let nutrientCallback = nutrientCallback else { return }
         
         if let annotations = notification.object as? [Annotation] {
+            let now = Date().timeIntervalSince1970
+            // Filter out duplicates within dedup window
+            let filtered: [Annotation] = annotations.filter { ann in
+                let id = ann.uuid ?? ann.name ?? ""
+                if id.isEmpty { return true }
+                if let last = recentDeletedEvents[id], (now - last) < deleteDedupWindow {
+                    return false
+                }
+                recentDeletedEvents[id] = now
+                return true
+            }
+            if filtered.isEmpty { return }
             let annotationJSON = PspdfkitFlutterConverter.instantJSON(
-                from: annotations)
+                from: filtered)
             nutrientCallback.onEvent(
                 event: NutrientEvent.annotationsDeleted,
                 data: ["annotations": annotationJSON]
