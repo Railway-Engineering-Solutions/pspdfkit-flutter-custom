@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v6';
+  static const _buildId = 'nutrient-web-controller-v7';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -493,6 +493,8 @@ class NutrientViewControllerWeb extends NutrientViewController
     for (final type in annotationTypes) {
       if (['square', 'circle', 'polygon'].contains(type)) {
         defaultProps[type] = {'strokeColor': pspdfkitColor, 'fillColor': pspdfkitColor};
+      } else if (type == 'freeText') {
+        defaultProps[type] = {'strokeColor': pspdfkitColor, 'fontColor': pspdfkitColor};
       } else {
         defaultProps[type] = {'strokeColor': pspdfkitColor};
       }
@@ -649,32 +651,34 @@ class NutrientViewControllerWeb extends NutrientViewController
             annotations.callMethod('get'.toJS, i.toJS) as JSObject?;
         if (annotation == null) continue;
 
-        // Annotations are Immutable.js Records — property access works
-        final currentColor = annotation['strokeColor'] as JSObject?;
-        if (currentColor == null) {
-          if (kDebugMode) print('[NutrientWeb] Annotation $i has no strokeColor');
-          continue;
+        // Check all color properties and enforce the locked color.
+        // Different annotation types use different color properties:
+        // - strokeColor: ink, shapes, lines
+        // - fillColor: shape fill
+        // - fontColor: text annotations
+        // - color: highlight/markup annotations
+        final colorProps = ['strokeColor', 'fillColor', 'fontColor', 'color'];
+        var updated = annotation;
+        var needsUpdate = false;
+
+        for (final prop in colorProps) {
+          final currentColor = annotation[prop] as JSObject?;
+          if (currentColor == null) continue;
+
+          final r = (currentColor['r'] as JSNumber?)?.toDartInt;
+          final g = (currentColor['g'] as JSNumber?)?.toDartInt;
+          final b = (currentColor['b'] as JSNumber?)?.toDartInt;
+
+          if (r != lockedR || g != lockedG || b != lockedB) {
+            updated = updated.callMethod(
+                'set'.toJS, prop.toJS, lockedColor) as JSObject;
+            needsUpdate = true;
+          }
         }
 
-        final r = (currentColor['r'] as JSNumber?)?.toDartInt;
-        final g = (currentColor['g'] as JSNumber?)?.toDartInt;
-        final b = (currentColor['b'] as JSNumber?)?.toDartInt;
-
-        if (kDebugMode) print('[NutrientWeb] Annotation $i color: r=$r g=$g b=$b, locked: r=$lockedR g=$lockedG b=$lockedB');
-
-        if (r != lockedR || g != lockedG || b != lockedB) {
+        if (needsUpdate) {
           if (kDebugMode) print('[NutrientWeb] Enforcing locked color on annotation $i');
-          // Use Immutable.js .set() to create updated annotation
-          JSObject updated = annotation.callMethod(
-              'set'.toJS, 'strokeColor'.toJS, lockedColor) as JSObject;
-          final fillColor = annotation['fillColor'];
-          if (fillColor != null) {
-            updated = updated.callMethod(
-                'set'.toJS, 'fillColor'.toJS, lockedColor) as JSObject;
-          }
-          // Use the SDK's update method
           instance.update(updated);
-          if (kDebugMode) print('[NutrientWeb] Annotation updated with locked color');
         }
       }
     } catch (e) {
