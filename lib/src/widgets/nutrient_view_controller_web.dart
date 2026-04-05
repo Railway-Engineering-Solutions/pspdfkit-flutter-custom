@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v10';
+  static const _buildId = 'nutrient-web-controller-v11';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -667,11 +667,27 @@ class NutrientViewControllerWeb extends NutrientViewController
     if (added > 0) console.log(V + 'Added overlays to ' + added + ' pages (total found: ' + pages.length + ')');
   }
 
+  // Diagnostic: dump all PSPDFKit elements to find page structure
+  function dumpElements() {
+    var all = document.querySelectorAll('[class^="PSPDFKit-"]');
+    console.log(V + 'Total PSPDFKit elements: ' + all.length);
+    for (var i = 0; i < Math.min(all.length, 30); i++) {
+      var el = all[i];
+      var rect = el.getBoundingClientRect();
+      var cs = window.getComputedStyle(el);
+      console.log(V + 'El ' + i + ': class=' + el.className.substring(0, 40) +
+        ' tag=' + el.tagName +
+        ' size=' + Math.round(rect.width) + 'x' + Math.round(rect.height) +
+        ' pos=' + cs.position +
+        ' children=' + el.children.length);
+    }
+  }
+
   // Apply now + retries
   applyOverlays();
-  setTimeout(applyOverlays, 500);
-  setTimeout(applyOverlays, 1500);
-  setTimeout(applyOverlays, 3000);
+  setTimeout(function() { dumpElements(); applyOverlays(); }, 1000);
+  setTimeout(applyOverlays, 2000);
+  setTimeout(applyOverlays, 4000);
 
   // Re-apply on DOM changes
   var observer = new MutationObserver(function() {
