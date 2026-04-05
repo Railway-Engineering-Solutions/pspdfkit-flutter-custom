@@ -591,7 +591,7 @@ class NutrientViewControllerWeb extends NutrientViewController
       final cssAlpha = 'rgba($r, $g, $b, 0.15)';
 
       final script = '''
-(function(css, cssAlpha) {
+(function(css, r, g, b) {
   // 1. Set viewport/app background via CSS variables
   var root = document.querySelector('[class^="PSPDFKit-"]');
   if (root) {
@@ -599,28 +599,37 @@ class NutrientViewControllerWeb extends NutrientViewController
     root.style.setProperty('--PSPDFKit-App-background', css);
   }
 
-  // 2. Add a tinted overlay on each page to simulate page tinting.
-  //    This overlays a semi-transparent colour on the rendered canvas.
-  function applyOverlays() {
+  // 2. Tint page canvases using globalCompositeOperation = 'destination-over'
+  //    which draws BEHIND existing content — white areas become the tint colour.
+  var tinted = new WeakSet();
+
+  function tintCanvas(canvas) {
+    try {
+      var ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    } catch(e) {}
+  }
+
+  function applyTint() {
     var canvases = document.querySelectorAll('[class^="PSPDFKit-"] canvas');
     for (var i = 0; i < canvases.length; i++) {
-      var canvas = canvases[i];
-      var parent = canvas.parentElement;
-      if (!parent || parent.querySelector('.trax-page-tint')) continue;
-      var overlay = document.createElement('div');
-      overlay.className = 'trax-page-tint';
-      overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:' + cssAlpha + ';pointer-events:none;z-index:1;';
-      parent.style.position = 'relative';
-      parent.appendChild(overlay);
+      tintCanvas(canvases[i]);
     }
   }
-  applyOverlays();
+  applyTint();
 
-  // Re-apply when new pages are rendered (lazy loading / scrolling)
-  var observer = new MutationObserver(function() { applyOverlays(); });
+  // Re-apply when DOM changes (new pages rendered, scrolling, zoom)
+  var observer = new MutationObserver(function() {
+    requestAnimationFrame(applyTint);
+  });
   var container = root ? (root.parentElement || document.body) : document.body;
-  observer.observe(container, {childList: true, subtree: true});
-})('$css', '$cssAlpha')
+  observer.observe(container, {childList: true, subtree: true, attributes: true, attributeFilter: ['width', 'height']});
+})('$css', $r, $g, $b)
 ''';
 
       globalContext.callMethod('eval'.toJS, script.toJS);
