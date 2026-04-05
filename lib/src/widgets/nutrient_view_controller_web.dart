@@ -226,7 +226,7 @@ class NutrientViewControllerWeb extends NutrientViewController
 
       // Re-apply locked color presets before entering annotation mode
       if (_lockedAnnotationColor != null) {
-        _applyColorToAnnotationPresets(_lockedAnnotationColor!);
+        await _applyColorToAnnotationPresets(_lockedAnnotationColor!);
       }
 
       // For text markup tools, set the annotation preset first
@@ -483,13 +483,13 @@ class NutrientViewControllerWeb extends NutrientViewController
 
   /// Applies a color to all annotation tools via annotation presets,
   /// view state colors, and default annotation properties.
-  void _applyColorToViewState(Color color) {
+  Future<void> _applyColorToViewState(Color color) async {
     final pspdfkitColor = _createPspdfkitColor(color);
     if (pspdfkitColor == null) return;
 
     // 1. Override annotation presets — this is the primary mechanism on web.
     // Each tool reads its color from its preset, not from the view state.
-    _applyColorToAnnotationPresets(color);
+    await _applyColorToAnnotationPresets(color);
 
     // 2. Also set view state colors as a fallback.
     final annotationTypes = [
@@ -520,15 +520,14 @@ class NutrientViewControllerWeb extends NutrientViewController
   }
 
   /// Overrides annotation presets to use the specified color for all tools.
-  /// Each tool reads its color from its annotation preset, so this is the
-  /// correct way to control tool colors on the Web SDK.
-  ///
-  /// Colors must be PSPDFKit.Color instances (not plain {r,g,b} maps),
-  /// so we build the presets object via JS interop rather than jsify().
-  void _applyColorToAnnotationPresets(Color color) {
+  /// Uses the SDK's setAnnotationPresets API with PSPDFKit.Color instances.
+  Future<void> _applyColorToAnnotationPresets(Color color) async {
     try {
       final pspdfkitColor = _createPspdfkitColor(color);
-      if (pspdfkitColor == null) return;
+      if (pspdfkitColor == null) {
+        if (kDebugMode) print('Could not create PSPDFKit color');
+        return;
+      }
 
       // All preset IDs that the Web SDK uses
       final presetIds = [
@@ -539,20 +538,40 @@ class NutrientViewControllerWeb extends NutrientViewController
         'redaction', 'signature', 'image',
       ];
 
-      // Build the presets JS object manually so PSPDFKit.Color instances
-      // are preserved (jsify() would flatten them to plain objects).
-      final presetsObj = globalContext.callMethod(
-          'eval'.toJS, '({})'.toJS) as JSObject;
+      // Read existing presets and merge our color into each one
+      final existingPresets = (instance as JSObject)
+          .getProperty('annotationPresets'.toJS);
 
+      // Build a new presets map from scratch using JS object creation
+      final newPresets = <String, Object>{};
       for (final id in presetIds) {
-        final presetObj = globalContext.callMethod(
-            'eval'.toJS, '({})'.toJS) as JSObject;
-        presetObj['strokeColor'] = pspdfkitColor;
-        presetObj['fillColor'] = pspdfkitColor;
-        presetsObj[id] = presetObj;
+        newPresets[id] = {
+          'strokeColor': pspdfkitColor,
+          'fillColor': pspdfkitColor,
+        };
       }
 
-      instance.setAnnotationPresets(presetsObj);
+      // Use jsify but replace Color placeholders with actual PSPDFKit.Color
+      // instances after conversion. Since jsify can't handle JSObject values
+      // inside Dart maps, build it with JS interop.
+      final jsPresets = newPresets.jsify() as JSObject;
+
+      // Now replace the jsify'd color maps with actual PSPDFKit.Color objects
+      for (final id in presetIds) {
+        final preset = jsPresets[id] as JSObject;
+        preset['strokeColor'] = pspdfkitColor;
+        preset['fillColor'] = pspdfkitColor;
+      }
+
+      if (kDebugMode) {
+        print('Setting annotation presets for ${presetIds.length} tools');
+      }
+
+      await instance.setAnnotationPresets(jsPresets).toDart;
+
+      if (kDebugMode) {
+        print('Annotation presets set successfully');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error applying color to annotation presets: $e');
@@ -564,7 +583,7 @@ class NutrientViewControllerWeb extends NutrientViewController
   Future<bool?> setDefaultAnnotationColor(Color color) async {
     try {
       _defaultAnnotationColor = color;
-      _applyColorToViewState(color);
+      await _applyColorToViewState(color);
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -579,7 +598,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     try {
       _lockedAnnotationColor = color;
       _defaultAnnotationColor = color;
-      _applyColorToViewState(color);
+      await _applyColorToViewState(color);
       _setupLockedColorEnforcement();
       return true;
     } catch (e) {
@@ -616,16 +635,8 @@ class NutrientViewControllerWeb extends NutrientViewController
   }
 
   /// Sets up event listeners to enforce the locked color on annotation
-  /// create/update events and view state changes.
+  /// create/update events.
   void _setupLockedColorEnforcement() {
-    // Re-apply locked color on every view state change (e.g. user switches tool)
-    final viewStateCallback = ((JSAny? event) {
-      if (_lockedAnnotationColor != null) {
-        _applyColorToViewState(_lockedAnnotationColor!);
-      }
-    }).toJS;
-    instance.addEventListener('viewState.change', viewStateCallback);
-
     // Intercept annotation creation — force locked color on new annotations
     final createCallback = ((JSAny? event) {
       if (_lockedAnnotationColor == null) return;
