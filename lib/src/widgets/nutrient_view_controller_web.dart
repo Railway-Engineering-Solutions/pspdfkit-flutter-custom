@@ -520,58 +520,43 @@ class NutrientViewControllerWeb extends NutrientViewController
   }
 
   /// Overrides annotation presets to use the specified color for all tools.
-  /// Uses the SDK's setAnnotationPresets API with PSPDFKit.Color instances.
+  /// Builds the entire presets object in pure JavaScript to avoid any
+  /// Dart-to-JS conversion issues with PSPDFKit.Color instances.
   Future<void> _applyColorToAnnotationPresets(Color color) async {
     try {
-      final pspdfkitColor = _createPspdfkitColor(color);
-      if (pspdfkitColor == null) {
-        if (kDebugMode) print('Could not create PSPDFKit color');
+      final r = (color.r * 255).round();
+      final g = (color.g * 255).round();
+      final b = (color.b * 255).round();
+
+      // Build the entire presets object in pure JS so PSPDFKit.Color
+      // instances are created natively without any Dart jsify conversion.
+      final script = '''
+(function() {
+  var c = new PSPDFKit.Color({r: $r, g: $g, b: $b});
+  var presets = {};
+  var ids = [
+    "inkPen", "highlighter", "freeText", "freeTextCallout",
+    "stamp", "note", "square", "circle", "ellipse",
+    "line", "arrow", "polygon", "polyline", "cloudy",
+    "highlight", "underline", "strikeout", "squiggly",
+    "redaction", "signature", "image"
+  ];
+  for (var i = 0; i < ids.length; i++) {
+    presets[ids[i]] = { strokeColor: c, fillColor: c };
+  }
+  return presets;
+})()
+''';
+
+      final jsPresets = globalContext.callMethod('eval'.toJS, script.toJS);
+      if (jsPresets == null) {
+        if (kDebugMode) print('eval returned null for annotation presets');
         return;
       }
 
-      // All preset IDs that the Web SDK uses
-      final presetIds = [
-        'inkPen', 'highlighter', 'freeText', 'freeTextCallout',
-        'stamp', 'note', 'square', 'circle', 'ellipse',
-        'line', 'arrow', 'polygon', 'polyline', 'cloudy',
-        'highlight', 'underline', 'strikeout', 'squiggly',
-        'redaction', 'signature', 'image',
-      ];
-
-      // Read existing presets and merge our color into each one
-      final existingPresets = (instance as JSObject)
-          .getProperty('annotationPresets'.toJS);
-
-      // Build a new presets map from scratch using JS object creation
-      final newPresets = <String, Object>{};
-      for (final id in presetIds) {
-        newPresets[id] = {
-          'strokeColor': pspdfkitColor,
-          'fillColor': pspdfkitColor,
-        };
-      }
-
-      // Use jsify but replace Color placeholders with actual PSPDFKit.Color
-      // instances after conversion. Since jsify can't handle JSObject values
-      // inside Dart maps, build it with JS interop.
-      final jsPresets = newPresets.jsify() as JSObject;
-
-      // Now replace the jsify'd color maps with actual PSPDFKit.Color objects
-      for (final id in presetIds) {
-        final preset = jsPresets[id] as JSObject;
-        preset['strokeColor'] = pspdfkitColor;
-        preset['fillColor'] = pspdfkitColor;
-      }
-
-      if (kDebugMode) {
-        print('Setting annotation presets for ${presetIds.length} tools');
-      }
-
-      await instance.setAnnotationPresets(jsPresets).toDart;
-
-      if (kDebugMode) {
-        print('Annotation presets set successfully');
-      }
+      if (kDebugMode) print('Setting annotation presets via eval');
+      await instance.setAnnotationPresets(jsPresets as JSAny).toDart;
+      if (kDebugMode) print('Annotation presets set successfully');
     } catch (e) {
       if (kDebugMode) {
         print('Error applying color to annotation presets: $e');
