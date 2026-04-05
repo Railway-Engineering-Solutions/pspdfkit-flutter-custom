@@ -490,6 +490,27 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
             styleManager.setPresets(singleColorPreset, forKey: tool, type: .colorPreset)
         }
 
+        // Hide color UI: disable color presets and remove color keys from the inspector
+        pdfViewController?.updateConfiguration(withBuilder: { builder in
+            builder.typesShowingColorPresets = []
+
+            // Remove color/fillColor from all annotation type inspector properties
+            if let existingProps = builder.propertiesForAnnotations as? [String: Any] {
+                var updatedProps = [String: Any]()
+                for (annotationType, value) in existingProps {
+                    if let groups = value as? [[AnnotationStyle.Key]] {
+                        let filtered = groups.map { group in
+                            group.filter { $0 != .color && $0 != .fillColor && $0 != .colorPreset }
+                        }.filter { !$0.isEmpty }
+                        updatedProps[annotationType] = filtered
+                    } else {
+                        updatedProps[annotationType] = value
+                    }
+                }
+                builder.propertiesForAnnotations = updatedProps
+            }
+        })
+
         // Observe annotation changes to revert any unauthorized color modifications
         NotificationCenter.default.removeObserver(self, name: .PSPDFAnnotationChanged, object: nil)
         NotificationCenter.default.addObserver(

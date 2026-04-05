@@ -16,6 +16,7 @@ import com.pspdfkit.document.processor.PdfProcessor
 import com.pspdfkit.document.processor.PdfProcessor.ProcessorProgress
 import com.pspdfkit.document.processor.PdfProcessorTask
 import com.pspdfkit.annotations.AnnotationType as NativeAnnotationType
+import com.pspdfkit.annotations.configuration.AnnotationProperty
 import com.pspdfkit.annotations.configuration.FreeTextAnnotationConfiguration
 import com.pspdfkit.annotations.configuration.InkAnnotationConfiguration
 import com.pspdfkit.annotations.configuration.LineAnnotationConfiguration
@@ -853,12 +854,19 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
             val singleColorList = listOf(androidColor)
             defaultAnnotationColor = androidColor
 
+            // Properties to show in the inspector — everything except color
+            val nonColorProperties = java.util.EnumSet.allOf(AnnotationProperty::class.java).apply {
+                remove(AnnotationProperty.COLOR)
+                remove(AnnotationProperty.FILL_COLOR)
+            }
+
             // Ink tools (pen, highlighter, magic ink, signature)
             val inkConfig = InkAnnotationConfiguration.builder(context)
                 .setDefaultColor(androidColor)
                 .setAvailableColors(singleColorList)
                 .setCustomColorPickerEnabled(false)
                 .setForceDefaults(true)
+                .setSupportedProperties(nonColorProperties)
                 .build()
             pdfFragment.annotationConfiguration.put(
                 NativeAnnotationTool.INK,
@@ -886,6 +894,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 .setAvailableColors(singleColorList)
                 .setCustomColorPickerEnabled(false)
                 .setForceDefaults(true)
+                .setSupportedProperties(nonColorProperties)
                 .build()
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.FREETEXT, freeTextConfig)
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.FREETEXT_CALLOUT, freeTextConfig)
@@ -901,6 +910,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                     .setAvailableColors(singleColorList)
                     .setCustomColorPickerEnabled(false)
                     .setForceDefaults(true)
+                    .setSupportedProperties(nonColorProperties)
                     .build()
                 pdfFragment.annotationConfiguration.put(tool, shapeConfig)
             }
@@ -915,6 +925,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                     .setAvailableColors(singleColorList)
                     .setCustomColorPickerEnabled(false)
                     .setForceDefaults(true)
+                    .setSupportedProperties(nonColorProperties)
                     .build()
                 pdfFragment.annotationConfiguration.put(tool, lineConfig)
             }
@@ -925,6 +936,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 .setAvailableColors(singleColorList)
                 .setCustomColorPickerEnabled(false)
                 .setForceDefaults(true)
+                .setSupportedProperties(nonColorProperties)
                 .build()
             pdfFragment.annotationConfiguration.put(
                 NativeAnnotationTool.LINE,
@@ -944,6 +956,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                     .setAvailableColors(singleColorList)
                     .setCustomColorPickerEnabled(false)
                     .setForceDefaults(true)
+                    .setSupportedProperties(nonColorProperties)
                     .build()
                 pdfFragment.annotationConfiguration.put(tool, markupConfig)
             }
@@ -954,6 +967,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 .setAvailableColors(singleColorList)
                 .setCustomColorPickerEnabled(false)
                 .setForceDefaults(true)
+                .setSupportedProperties(nonColorProperties)
                 .build()
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.NOTE, noteConfig)
 
@@ -963,6 +977,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 .setAvailableColors(singleColorList)
                 .setCustomColorPickerEnabled(false)
                 .setForceDefaults(true)
+                .setSupportedProperties(nonColorProperties)
                 .build()
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.REDACTION, redactionConfig)
 
@@ -971,6 +986,7 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 .setAvailableColors(singleColorList)
                 .setCustomColorPickerEnabled(false)
                 .setForceDefaults(true)
+                .setSupportedProperties(nonColorProperties)
                 .build()
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.STAMP, stampConfig)
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.IMAGE, stampConfig)
