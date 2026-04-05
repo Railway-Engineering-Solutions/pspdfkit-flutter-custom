@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v8';
+  static const _buildId = 'nutrient-web-controller-v9';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -592,25 +592,50 @@ class NutrientViewControllerWeb extends NutrientViewController
 
       final script = '''
 (function(css, r, g, b) {
-  console.log('[PageBG-v8] Starting page background tint: ' + css);
+  var V = '[PageBG-v9] ';
+  console.log(V + 'Starting: ' + css);
 
   // 1. Set viewport/app background via CSS variables
   var root = document.querySelector('[class^="PSPDFKit-"]');
-  console.log('[PageBG-v8] Root element found: ' + !!root);
   if (root) {
     root.style.setProperty('--PSPDFKit-Viewport-background', css);
     root.style.setProperty('--PSPDFKit-App-background', css);
-    console.log('[PageBG-v8] CSS variables set');
   }
 
-  // 2. Tint page canvases using globalCompositeOperation = 'destination-over'
+  // 2. Find ALL canvases in the document and check if they're inside
+  //    the SDK container or an iframe/shadow DOM
+  function findCanvases() {
+    // Try direct document search
+    var all = document.querySelectorAll('canvas');
+    if (all.length > 0) return all;
+
+    // Try iframes
+    var iframes = document.querySelectorAll('iframe');
+    for (var i = 0; i < iframes.length; i++) {
+      try {
+        var iDoc = iframes[i].contentDocument;
+        if (iDoc) {
+          var ic = iDoc.querySelectorAll('canvas');
+          if (ic.length > 0) return ic;
+        }
+      } catch(e) {}
+    }
+
+    // Try shadow DOMs
+    var shadows = document.querySelectorAll('[class^="PSPDFKit-"]');
+    for (var i = 0; i < shadows.length; i++) {
+      if (shadows[i].shadowRoot) {
+        var sc = shadows[i].shadowRoot.querySelectorAll('canvas');
+        if (sc.length > 0) return sc;
+      }
+    }
+    return [];
+  }
+
   function tintCanvas(canvas) {
     try {
       var ctx = canvas.getContext('2d');
-      if (!ctx) {
-        console.log('[PageBG-v8] No 2d context for canvas ' + canvas.width + 'x' + canvas.height);
-        return false;
-      }
+      if (!ctx) return false;
       ctx.save();
       ctx.globalCompositeOperation = 'destination-over';
       ctx.fillStyle = css;
@@ -618,36 +643,40 @@ class NutrientViewControllerWeb extends NutrientViewController
       ctx.restore();
       return true;
     } catch(e) {
-      console.log('[PageBG-v8] tintCanvas error: ' + e);
+      console.log(V + 'tintCanvas error: ' + e.message);
       return false;
     }
   }
 
+  var logCount = 0;
   function applyTint() {
-    var canvases = document.querySelectorAll('[class^="PSPDFKit-"] canvas');
-    console.log('[PageBG-v8] Found ' + canvases.length + ' canvases');
-    var tinted = 0;
+    var canvases = findCanvases();
+    var tinted = 0, failed = 0;
     for (var i = 0; i < canvases.length; i++) {
       var c = canvases[i];
-      console.log('[PageBG-v8] Canvas ' + i + ': ' + c.width + 'x' + c.height + ' webgl=' + !!c.getContext('webgl2'));
-      if (tintCanvas(c)) tinted++;
+      if (c.width > 100 && c.height > 100) {
+        if (tintCanvas(c)) tinted++;
+        else failed++;
+      }
     }
-    console.log('[PageBG-v8] Tinted ' + tinted + '/' + canvases.length + ' canvases');
+    logCount++;
+    if (logCount <= 10) {
+      console.log(V + 'canvases=' + canvases.length + ' tinted=' + tinted + ' failed=' + failed);
+    }
   }
-  applyTint();
 
-  // Re-apply when DOM changes (new pages rendered, scrolling, zoom)
-  var mutationCount = 0;
+  // Initial attempt + retry after a delay for lazy rendering
+  applyTint();
+  setTimeout(applyTint, 500);
+  setTimeout(applyTint, 1500);
+  setTimeout(applyTint, 3000);
+
+  // Re-apply on DOM changes
   var observer = new MutationObserver(function() {
-    mutationCount++;
-    if (mutationCount <= 5) {
-      console.log('[PageBG-v8] MutationObserver fired (#' + mutationCount + ')');
-    }
     requestAnimationFrame(applyTint);
   });
-  var container = root ? (root.parentElement || document.body) : document.body;
-  observer.observe(container, {childList: true, subtree: true, attributes: true, attributeFilter: ['width', 'height']});
-  console.log('[PageBG-v8] MutationObserver set up');
+  observer.observe(document.body, {childList: true, subtree: true});
+  console.log(V + 'Observer set up on document.body');
 })('$css', $r, $g, $b)
 ''';
 
