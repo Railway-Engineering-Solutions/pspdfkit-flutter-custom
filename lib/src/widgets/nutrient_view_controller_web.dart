@@ -578,20 +578,32 @@ class NutrientViewControllerWeb extends NutrientViewController
 
   @override
   Future<bool?> setPageBackgroundColor(Color color) async {
-    // Web fallback: style the page elements with a CSS background color.
+    // Web: inject CSS to set page background color.
+    // Target multiple possible class names (PSPDFKit legacy + NutrientViewer).
     try {
       final r = (color.r * 255).round();
       final g = (color.g * 255).round();
       final b = (color.b * 255).round();
       final css = 'rgb($r, $g, $b)';
 
-      // Inject a CSS rule targeting the PSPDFKit page layer
+      final cssRule = '''
+.PSPDFKit-Page-Canvas,
+.PSPDFKit-Spread,
+.PSPDFKit-Page,
+[class*="Page-canvas"],
+[class*="page-canvas"],
+[class*="Spread"],
+[class*="Page_page"] {
+  background-color: $css !important;
+}
+''';
+
       final doc = globalContext['document'] as JSObject;
       final style = doc.callMethod('createElement'.toJS, 'style'.toJS) as JSObject;
-      style['textContent'] =
-          '.PSPDFKit-Page-Canvas { background-color: $css !important; }'.toJS;
+      style['textContent'] = cssRule.toJS;
       final head = doc['head'] as JSObject;
       head.callMethod('appendChild'.toJS, style);
+      if (kDebugMode) print('[NutrientWeb] Page background CSS injected: $css');
       return true;
     } catch (e) {
       if (kDebugMode) {
