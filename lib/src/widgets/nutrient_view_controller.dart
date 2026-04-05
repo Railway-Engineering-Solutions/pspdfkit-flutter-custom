@@ -112,6 +112,20 @@ abstract class NutrientViewController {
   /// ```
   Future<bool?> setDefaultAnnotationColor(Color color);
 
+  /// Locks annotation color to a single color for all annotation tools.
+  /// This sets the default color for all tools, restricts the available
+  /// color palette to only the specified color, disables the custom color
+  /// picker, and forces defaults so the user cannot change the color.
+  ///
+  /// This is useful for multi-user annotation workflows where each user
+  /// must use a unique, enforced color for accountability.
+  ///
+  /// Example:
+  /// ```dart
+  /// await controller.setLockedAnnotationColor(userColor);
+  /// ```
+  Future<bool?> setLockedAnnotationColor(Color color);
+
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor;
 }

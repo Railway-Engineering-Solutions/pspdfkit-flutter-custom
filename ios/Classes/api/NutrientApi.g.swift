@@ -1989,6 +1989,14 @@ protocol NutrientViewControllerApi {
   /// @param color The color to use as default, as ARGB integer
   /// @return True if the color was set successfully, false otherwise.
   func setDefaultAnnotationColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void)
+  /// Locks annotation color to a single color for all annotation tools.
+  /// This sets the default color, restricts the color palette to only that
+  /// color, disables the custom color picker, and forces defaults so the
+  /// user cannot change the annotation color.
+  ///
+  /// @param color The color to lock to, as an ARGB integer.
+  /// @return True if the color was locked successfully, false otherwise.
+  func setLockedAnnotationColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void)
   /// Sets the annotation menu configuration for the current view controller.
   /// This configuration applies only to annotation menus in the current document view.
   ///
@@ -2415,6 +2423,30 @@ class NutrientViewControllerApiSetup {
       }
     } else {
       setDefaultAnnotationColorChannel.setMessageHandler(nil)
+    }
+    /// Locks annotation color to a single color for all annotation tools.
+    /// This sets the default color, restricts the color palette to only that
+    /// color, disables the custom color picker, and forces defaults so the
+    /// user cannot change the annotation color.
+    ///
+    /// @param color The color to lock to, as an ARGB integer.
+    /// @return True if the color was locked successfully, false otherwise.
+    let setLockedAnnotationColorChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setLockedAnnotationColor\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setLockedAnnotationColorChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let colorArg = args[0] as! Int64
+        api.setLockedAnnotationColor(color: colorArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setLockedAnnotationColorChannel.setMessageHandler(nil)
     }
     /// Sets the annotation menu configuration for the current view controller.
     /// This configuration applies only to annotation menus in the current document view.

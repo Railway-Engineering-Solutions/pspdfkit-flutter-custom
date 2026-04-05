@@ -150,6 +150,13 @@ class NutrientViewControllerNative
   }
 
   @override
+  Future<bool?> setLockedAnnotationColor(Color color) async {
+    _defaultAnnotationColor = color;
+    final int colorValue = color.value;
+    return _pspdfkitWidgetControllerApi.setLockedAnnotationColor(colorValue);
+  }
+
+  @override
   Color? get defaultAnnotationColor => _defaultAnnotationColor;
 
   @override

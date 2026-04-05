@@ -173,4 +173,25 @@ class _LegacyControllerWrapper extends PspdfkitWidgetController {
   void removeWebEventListener(
           NutrientWebEvent event, Function(dynamic) callback) =>
       _delegate.removeWebEventListener(event, callback);
+
+  @override
+  Future<bool?> setDefaultAnnotationColor(Color color) =>
+      _delegate.setDefaultAnnotationColor(color);
+
+  @override
+  Future<bool?> setLockedAnnotationColor(Color color) =>
+      _delegate.setLockedAnnotationColor(color);
+
+  @override
+  Future<bool?> setUserInteractionEnabled(bool enabled) =>
+      _delegate.setUserInteractionEnabled(enabled);
+
+  @override
+  Color? get defaultAnnotationColor => _delegate.defaultAnnotationColor;
+
+  @override
+  Future<bool?> setAnnotationMenuConfiguration(
+    AnnotationMenuConfiguration configuration,
+  ) =>
+      _delegate.setAnnotationMenuConfiguration(configuration);
 }

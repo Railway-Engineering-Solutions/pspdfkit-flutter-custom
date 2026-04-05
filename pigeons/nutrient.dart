@@ -596,6 +596,16 @@ abstract class NutrientViewControllerApi {
   @async
   bool? setDefaultAnnotationColor(int color);
 
+  /// Locks annotation color to a single color for all annotation tools.
+  /// This sets the default color, restricts the color palette to only that
+  /// color, disables the custom color picker, and forces defaults so the
+  /// user cannot change the annotation color.
+  ///
+  /// @param color The color to lock to, as an ARGB integer.
+  /// @return True if the color was locked successfully, false otherwise.
+  @async
+  bool? setLockedAnnotationColor(int color);
+
   /// Sets the annotation menu configuration for the current view controller.
   /// This configuration applies only to annotation menus in the current document view.
   ///

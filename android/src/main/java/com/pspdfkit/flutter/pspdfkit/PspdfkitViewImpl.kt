@@ -15,8 +15,19 @@ import com.pspdfkit.document.formatters.XfdfFormatter
 import com.pspdfkit.document.processor.PdfProcessor
 import com.pspdfkit.document.processor.PdfProcessor.ProcessorProgress
 import com.pspdfkit.document.processor.PdfProcessorTask
+import com.pspdfkit.annotations.AnnotationType as NativeAnnotationType
+import com.pspdfkit.annotations.configuration.FreeTextAnnotationConfiguration
+import com.pspdfkit.annotations.configuration.InkAnnotationConfiguration
+import com.pspdfkit.annotations.configuration.LineAnnotationConfiguration
+import com.pspdfkit.annotations.configuration.MarkupAnnotationConfiguration
+import com.pspdfkit.annotations.configuration.NoteAnnotationConfiguration
+import com.pspdfkit.annotations.configuration.RedactionAnnotationConfiguration
+import com.pspdfkit.annotations.configuration.ShapeAnnotationConfiguration
+import com.pspdfkit.annotations.configuration.StampAnnotationConfiguration
 import com.pspdfkit.flutter.pspdfkit.AnnotationConfigurationAdaptor.Companion.convertAnnotationConfigurations
 import com.pspdfkit.flutter.pspdfkit.annotations.AnnotationUtils
+import com.pspdfkit.ui.special_mode.controller.AnnotationTool as NativeAnnotationTool
+import com.pspdfkit.ui.special_mode.controller.AnnotationToolVariant
 import com.pspdfkit.flutter.pspdfkit.annotations.FlutterAnnotationPresetConfiguration
 import com.pspdfkit.flutter.pspdfkit.api.AnnotationProcessingMode
 import com.pspdfkit.flutter.pspdfkit.api.AnnotationTool
@@ -824,6 +835,152 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 Result.failure(
                     NutrientApiError(
                         "Error setting default annotation color",
+                        e.message ?: "Unknown error"
+                    )
+                )
+            )
+        }
+    }
+
+    override fun setLockedAnnotationColor(color: Long, callback: (Result<Boolean?>) -> Unit) {
+        try {
+            val context = pdfUiFragment?.requireContext()
+                ?: throw IllegalStateException("PDF fragment is not available")
+            val pdfFragment = pdfUiFragment?.pdfFragment
+                ?: throw IllegalStateException("PDF fragment is not available")
+
+            val androidColor = color.toInt()
+            val singleColorList = listOf(androidColor)
+            defaultAnnotationColor = androidColor
+
+            // Ink tools (pen, highlighter, magic ink, signature)
+            val inkConfig = InkAnnotationConfiguration.builder(context)
+                .setDefaultColor(androidColor)
+                .setAvailableColors(singleColorList)
+                .setCustomColorPickerEnabled(false)
+                .setForceDefaults(true)
+                .build()
+            pdfFragment.annotationConfiguration.put(
+                NativeAnnotationTool.INK,
+                AnnotationToolVariant.fromPreset(AnnotationToolVariant.Preset.PEN),
+                inkConfig
+            )
+            pdfFragment.annotationConfiguration.put(
+                NativeAnnotationTool.INK,
+                AnnotationToolVariant.fromPreset(AnnotationToolVariant.Preset.HIGHLIGHTER),
+                inkConfig
+            )
+            pdfFragment.annotationConfiguration.put(
+                NativeAnnotationTool.MAGIC_INK,
+                AnnotationToolVariant.fromPreset(AnnotationToolVariant.Preset.MAGIC),
+                inkConfig
+            )
+            pdfFragment.annotationConfiguration.put(
+                NativeAnnotationTool.SIGNATURE,
+                inkConfig
+            )
+
+            // FreeText tools
+            val freeTextConfig = FreeTextAnnotationConfiguration.builder(context)
+                .setDefaultColor(androidColor)
+                .setAvailableColors(singleColorList)
+                .setCustomColorPickerEnabled(false)
+                .setForceDefaults(true)
+                .build()
+            pdfFragment.annotationConfiguration.put(NativeAnnotationTool.FREETEXT, freeTextConfig)
+            pdfFragment.annotationConfiguration.put(NativeAnnotationTool.FREETEXT_CALLOUT, freeTextConfig)
+
+            // Shape tools (square, circle, polygon)
+            for ((type, tool) in listOf(
+                Pair(NativeAnnotationType.SQUARE, NativeAnnotationTool.SQUARE),
+                Pair(NativeAnnotationType.CIRCLE, NativeAnnotationTool.CIRCLE),
+                Pair(NativeAnnotationType.POLYGON, NativeAnnotationTool.POLYGON),
+            )) {
+                val shapeConfig = ShapeAnnotationConfiguration.builder(context, type)
+                    .setDefaultColor(androidColor)
+                    .setAvailableColors(singleColorList)
+                    .setCustomColorPickerEnabled(false)
+                    .setForceDefaults(true)
+                    .build()
+                pdfFragment.annotationConfiguration.put(tool, shapeConfig)
+            }
+
+            // Line tools (line, polyline)
+            for ((type, tool) in listOf(
+                Pair(NativeAnnotationType.LINE, NativeAnnotationTool.LINE),
+                Pair(NativeAnnotationType.POLYLINE, NativeAnnotationTool.POLYLINE),
+            )) {
+                val lineConfig = LineAnnotationConfiguration.builder(context, type)
+                    .setDefaultColor(androidColor)
+                    .setAvailableColors(singleColorList)
+                    .setCustomColorPickerEnabled(false)
+                    .setForceDefaults(true)
+                    .build()
+                pdfFragment.annotationConfiguration.put(tool, lineConfig)
+            }
+
+            // Arrow (line tool with arrow variant)
+            val arrowConfig = LineAnnotationConfiguration.builder(context, NativeAnnotationType.LINE)
+                .setDefaultColor(androidColor)
+                .setAvailableColors(singleColorList)
+                .setCustomColorPickerEnabled(false)
+                .setForceDefaults(true)
+                .build()
+            pdfFragment.annotationConfiguration.put(
+                NativeAnnotationTool.LINE,
+                AnnotationToolVariant.fromPreset(AnnotationToolVariant.Preset.ARROW),
+                arrowConfig
+            )
+
+            // Markup tools (highlight, underline, strikeout, squiggly)
+            for ((type, tool) in listOf(
+                Pair(NativeAnnotationType.HIGHLIGHT, NativeAnnotationTool.HIGHLIGHT),
+                Pair(NativeAnnotationType.UNDERLINE, NativeAnnotationTool.UNDERLINE),
+                Pair(NativeAnnotationType.STRIKEOUT, NativeAnnotationTool.STRIKEOUT),
+                Pair(NativeAnnotationType.SQUIGGLY, NativeAnnotationTool.SQUIGGLY),
+            )) {
+                val markupConfig = MarkupAnnotationConfiguration.builder(context, type)
+                    .setDefaultColor(androidColor)
+                    .setAvailableColors(singleColorList)
+                    .setCustomColorPickerEnabled(false)
+                    .setForceDefaults(true)
+                    .build()
+                pdfFragment.annotationConfiguration.put(tool, markupConfig)
+            }
+
+            // Note tool
+            val noteConfig = NoteAnnotationConfiguration.builder(context)
+                .setDefaultColor(androidColor)
+                .setAvailableColors(singleColorList)
+                .setCustomColorPickerEnabled(false)
+                .setForceDefaults(true)
+                .build()
+            pdfFragment.annotationConfiguration.put(NativeAnnotationTool.NOTE, noteConfig)
+
+            // Redaction tool
+            val redactionConfig = RedactionAnnotationConfiguration.builder(context)
+                .setDefaultColor(androidColor)
+                .setAvailableColors(singleColorList)
+                .setCustomColorPickerEnabled(false)
+                .setForceDefaults(true)
+                .build()
+            pdfFragment.annotationConfiguration.put(NativeAnnotationTool.REDACTION, redactionConfig)
+
+            // Stamp and image tools
+            val stampConfig = StampAnnotationConfiguration.builder(context)
+                .setAvailableColors(singleColorList)
+                .setCustomColorPickerEnabled(false)
+                .setForceDefaults(true)
+                .build()
+            pdfFragment.annotationConfiguration.put(NativeAnnotationTool.STAMP, stampConfig)
+            pdfFragment.annotationConfiguration.put(NativeAnnotationTool.IMAGE, stampConfig)
+
+            callback(Result.success(true))
+        } catch (e: Exception) {
+            callback(
+                Result.failure(
+                    NutrientApiError(
+                        "Error locking annotation color",
                         e.message ?: "Unknown error"
                     )
                 )

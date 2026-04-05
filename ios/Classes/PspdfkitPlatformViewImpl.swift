@@ -439,7 +439,56 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         defaultAnnotationColor = Int(color)
         completion(.success(true))
     }
-    
+
+    func setLockedAnnotationColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void) {
+        // Store as default color
+        defaultAnnotationColor = Int(color)
+
+        // Convert ARGB int to UIColor
+        let uiColor = UIColor(
+            red: CGFloat((color >> 16) & 0xFF) / 255.0,
+            green: CGFloat((color >> 8) & 0xFF) / 255.0,
+            blue: CGFloat(color & 0xFF) / 255.0,
+            alpha: CGFloat((color >> 24) & 0xFF) / 255.0
+        )
+
+        let styleManager = SDK.shared.styleManager
+        let singleColorPreset = [ColorPreset(color: uiColor)]
+
+        // All annotation tool variant IDs that support color
+        let tools: [Annotation.ToolVariantID] = [
+            Annotation.ToolVariantID(tool: .ink, variant: .inkPen),
+            Annotation.ToolVariantID(tool: .ink, variant: .inkHighlighter),
+            Annotation.ToolVariantID(tool: .ink, variant: .inkMagic),
+            Annotation.ToolVariantID(tool: .freeText),
+            Annotation.ToolVariantID(tool: .freeText, variant: .freeTextCallout),
+            Annotation.ToolVariantID(tool: .square),
+            Annotation.ToolVariantID(tool: .circle),
+            Annotation.ToolVariantID(tool: .line),
+            Annotation.ToolVariantID(tool: .line, variant: .lineArrow),
+            Annotation.ToolVariantID(tool: .polygon),
+            Annotation.ToolVariantID(tool: .polyLine),
+            Annotation.ToolVariantID(tool: .note),
+            Annotation.ToolVariantID(tool: .highlight),
+            Annotation.ToolVariantID(tool: .underline),
+            Annotation.ToolVariantID(tool: .strikeOut),
+            Annotation.ToolVariantID(tool: .squiggly),
+            Annotation.ToolVariantID(tool: .redaction),
+            Annotation.ToolVariantID(tool: .signature),
+            Annotation.ToolVariantID(tool: .stamp),
+            Annotation.ToolVariantID(tool: .image),
+        ]
+
+        for tool in tools {
+            // Set the default color
+            styleManager.setLastUsedValue(uiColor, forProperty: #keyPath(Annotation.color), forKey: tool)
+            // Restrict the color palette to only this color
+            styleManager.setPresets(singleColorPreset, forKey: tool, type: .colorPreset)
+        }
+
+        completion(.success(true))
+    }
+
     // MARK: - Annotation Menu Delegate Methods
     
     

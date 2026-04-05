@@ -392,6 +392,12 @@ class NutrientViewControllerWeb extends NutrientViewController
     }
   }
 
+  @override
+  Future<bool?> setLockedAnnotationColor(Color color) async {
+    // Web platform falls back to setting the default annotation color.
+    return setDefaultAnnotationColor(color);
+  }
+
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor => pspdfkitInstance.defaultAnnotationColor;
 
