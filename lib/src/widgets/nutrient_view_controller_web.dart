@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v4';
+  static const _buildId = 'nutrient-web-controller-v5';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -531,46 +531,10 @@ class NutrientViewControllerWeb extends NutrientViewController
         'redaction', 'signature', 'image',
       ];
 
-      // Read existing presets from the instance so we preserve the SDK's
-      // internal format (Immutable.js records), and only override colors.
-      final existingPresets = (instance as JSObject)
-          .getProperty('annotationPresets'.toJS);
-
-      if (kDebugMode) {
-        print('Existing presets type: ${existingPresets.runtimeType}, isNull: ${existingPresets == null}');
-      }
-
-      if (existingPresets != null) {
-        // The presets object is an Immutable.js Map — use .get()/.set()
-        // instead of property access.
-        final presetsObj = existingPresets as JSObject;
-        var updatedPresets = presetsObj;
-
-        for (final id in presetIds) {
-          // Use Immutable.js .get() to read the preset
-          final existing = updatedPresets.callMethod('get'.toJS, id.toJS);
-          if (kDebugMode && existing == null) {
-            print('Preset "$id" not found in existing presets');
-          }
-          if (existing != null) {
-            // Use Immutable.js .set() to update color properties
-            final preset = existing as JSObject;
-            var updatedPreset = preset.callMethod(
-                'set'.toJS, 'strokeColor'.toJS, webColor) as JSObject;
-            updatedPreset = updatedPreset.callMethod(
-                'set'.toJS, 'fillColor'.toJS, webColor) as JSObject;
-            // Use Immutable.js .set() on the parent map too
-            updatedPresets = updatedPresets.callMethod(
-                'set'.toJS, id.toJS, updatedPreset) as JSObject;
-          }
-        }
-
-        if (kDebugMode) print('Setting modified annotation presets');
-        await instance.setAnnotationPresets(updatedPresets).toDart;
-        if (kDebugMode) print('Annotation presets set successfully');
-      } else {
-        if (kDebugMode) print('No existing presets found on instance');
-      }
+      // The annotation presets API uses Immutable.js internally and
+      // resists modification. Instead, skip presets entirely and rely on
+      // the enforcement listeners to recolor annotations after creation.
+      if (kDebugMode) print('Locked color applied via enforcement listeners');
     } catch (e) {
       if (kDebugMode) {
         print('Error applying color to annotation presets: $e');
@@ -653,21 +617,23 @@ class NutrientViewControllerWeb extends NutrientViewController
     instance.addEventListener('annotations.update', updateCallback);
   }
 
-  /// Checks annotations from an event and reverts any color that doesn't
-  /// match the locked color.
+  /// Checks annotations from an event and updates any whose color doesn't
+  /// match the locked color. Uses Immutable.js .set() on the annotation
+  /// records and the SDK's instance.update() to persist changes.
   void _enforceLockedColorOnAnnotationEvent(JSAny? event) {
     if (_lockedAnnotationColor == null || event == null) return;
 
     try {
+      final lockedColor = _createWebColor(_lockedAnnotationColor!);
+      if (lockedColor == null) return;
+
+      // The event contains an Immutable.js List of annotation records
       final eventObj = event as JSObject;
       final annotations = eventObj['annotations'] as JSObject?;
       if (annotations == null) return;
 
       final size = (annotations['size'] as JSNumber?)?.toDartInt ?? 0;
       if (size == 0) return;
-
-      final lockedColor = _createWebColor(_lockedAnnotationColor!);
-      if (lockedColor == null) return;
 
       final lockedR = (_lockedAnnotationColor!.r * 255).round();
       final lockedG = (_lockedAnnotationColor!.g * 255).round();
@@ -678,6 +644,8 @@ class NutrientViewControllerWeb extends NutrientViewController
             annotations.callMethod('get'.toJS, i.toJS) as JSObject?;
         if (annotation == null) continue;
 
+        // Annotations are Immutable.js Records — use property access
+        // (Records support direct property access unlike Maps)
         final currentColor = annotation['strokeColor'] as JSObject?;
         if (currentColor == null) continue;
 
@@ -686,6 +654,8 @@ class NutrientViewControllerWeb extends NutrientViewController
         final b = (currentColor['b'] as JSNumber?)?.toDartInt;
 
         if (r != lockedR || g != lockedG || b != lockedB) {
+          if (kDebugMode) print('[NutrientWeb] Enforcing locked color on annotation');
+          // Use Immutable.js .set() to create updated annotation
           JSObject updated = annotation.callMethod(
               'set'.toJS, 'strokeColor'.toJS, lockedColor) as JSObject;
           final fillColor = annotation['fillColor'];
@@ -693,7 +663,8 @@ class NutrientViewControllerWeb extends NutrientViewController
             updated = updated.callMethod(
                 'set'.toJS, 'fillColor'.toJS, lockedColor) as JSObject;
           }
-          (instance as JSObject).callMethod('update'.toJS, updated);
+          // Use the SDK's update method (returns a Promise)
+          instance.update(updated);
         }
       }
     } catch (e) {
