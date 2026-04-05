@@ -568,10 +568,12 @@ class NutrientViewControllerWeb extends NutrientViewController
   @override
   Future<bool?> setLockedAnnotationColor(Color color) async {
     try {
+      if (kDebugMode) print('[NutrientWeb] setLockedAnnotationColor called with: $color');
       _lockedAnnotationColor = color;
       _defaultAnnotationColor = color;
       await _applyColorToViewState(color);
       _setupLockedColorEnforcement();
+      if (kDebugMode) print('[NutrientWeb] setLockedAnnotationColor completed');
       return true;
     } catch (e) {
       if (kDebugMode) {
