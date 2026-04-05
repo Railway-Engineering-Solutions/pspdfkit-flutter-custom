@@ -527,15 +527,12 @@ class NutrientViewControllerWeb extends NutrientViewController
         'redaction', 'signature', 'image',
       ];
 
-      // Build JS objects entirely through JS interop — no jsify.
-      // Use Object.create(null) via the JS Object constructor.
-      final objectConstructor = globalContext['Object'] as JSObject;
-      final jsPresets =
-          objectConstructor.callMethod('create'.toJS, null) as JSObject;
+      // Build JS objects using jsify for structure, then set Color
+      // properties directly via setProperty (jsify can't handle JSObject values).
+      final jsPresets = <String, dynamic>{}.jsify() as JSObject;
 
       for (final id in presetIds) {
-        final preset =
-            objectConstructor.callMethod('create'.toJS, null) as JSObject;
+        final preset = <String, dynamic>{}.jsify() as JSObject;
         preset.setProperty('strokeColor'.toJS, webColor);
         preset.setProperty('fillColor'.toJS, webColor);
         jsPresets.setProperty(id.toJS, preset);
