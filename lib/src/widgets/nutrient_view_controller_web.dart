@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v3';
+  static const _buildId = 'nutrient-web-controller-v4';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -541,26 +541,32 @@ class NutrientViewControllerWeb extends NutrientViewController
       }
 
       if (existingPresets != null) {
-        // Modify each preset in the existing presets object
+        // The presets object is an Immutable.js Map — use .get()/.set()
+        // instead of property access.
         final presetsObj = existingPresets as JSObject;
+        var updatedPresets = presetsObj;
+
         for (final id in presetIds) {
-          final existing = presetsObj.getProperty(id.toJS);
+          // Use Immutable.js .get() to read the preset
+          final existing = updatedPresets.callMethod('get'.toJS, id.toJS);
+          if (kDebugMode && existing == null) {
+            print('Preset "$id" not found in existing presets');
+          }
           if (existing != null) {
-            // Update the existing preset's color via Immutable.js .set()
+            // Use Immutable.js .set() to update color properties
             final preset = existing as JSObject;
-            try {
-              var updated = preset.callMethod('set'.toJS, 'strokeColor'.toJS, webColor) as JSObject;
-              updated = updated.callMethod('set'.toJS, 'fillColor'.toJS, webColor) as JSObject;
-              presetsObj.setProperty(id.toJS, updated);
-            } catch (e) {
-              // If .set() fails (not Immutable), try direct property assignment
-              preset.setProperty('strokeColor'.toJS, webColor);
-              preset.setProperty('fillColor'.toJS, webColor);
-            }
+            var updatedPreset = preset.callMethod(
+                'set'.toJS, 'strokeColor'.toJS, webColor) as JSObject;
+            updatedPreset = updatedPreset.callMethod(
+                'set'.toJS, 'fillColor'.toJS, webColor) as JSObject;
+            // Use Immutable.js .set() on the parent map too
+            updatedPresets = updatedPresets.callMethod(
+                'set'.toJS, id.toJS, updatedPreset) as JSObject;
           }
         }
-        if (kDebugMode) print('Setting modified annotation presets for ${presetIds.length} tools');
-        await instance.setAnnotationPresets(presetsObj).toDart;
+
+        if (kDebugMode) print('Setting modified annotation presets');
+        await instance.setAnnotationPresets(updatedPresets).toDart;
         if (kDebugMode) print('Annotation presets set successfully');
       } else {
         if (kDebugMode) print('No existing presets found on instance');
