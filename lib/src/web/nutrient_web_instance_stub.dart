@@ -61,4 +61,11 @@ class NutrientWebInstance {
   Future<double> getZoomScale(int pageIndex) async => 1.0;
   Future<int> getPageCount() async => 0;
   dynamic webAnnotationToJSON(dynamic annotation) => {};
+  Future<List<Bookmark>> getBookmarks() async => [];
+  Future<Bookmark> addBookmark(Bookmark bookmark) async => bookmark;
+  Future<bool> removeBookmark(Bookmark bookmark) async => false;
+  Future<bool> updateBookmark(Bookmark bookmark) async => false;
+  Future<List<Bookmark>> getBookmarksForPage(int pageIndex) async => [];
+  Future<bool> hasBookmarkForPage(int pageIndex) async => false;
+  Future<bool> hasUnsavedChanges() async => false;
 }

@@ -296,6 +296,12 @@ class HeadlessPdfDocumentNative extends PdfDocument
     }
   }
 
+  @override
+  Future<void> setAnnotationsHidden(bool hidden) async {
+    _ensureNotClosed();
+    await _api.setAnnotationsHidden(hidden);
+  }
+
   // ============================
   // Document Lifecycle Methods
   // ============================
