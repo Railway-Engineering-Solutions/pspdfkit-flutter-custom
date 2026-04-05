@@ -538,6 +538,29 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         }
     }
 
+    func setPageBackgroundColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void) {
+        let uiColor = UIColor(
+            red: CGFloat((color >> 16) & 0xFF) / 255.0,
+            green: CGFloat((color >> 8) & 0xFF) / 255.0,
+            blue: CGFloat(color & 0xFF) / 255.0,
+            alpha: CGFloat((color >> 24) & 0xFF) / 255.0
+        )
+
+        guard let document = pdfViewController?.document else {
+            completion(.failure(NutrientApiError(code: "error", message: "Document not available", details: nil)))
+            return
+        }
+
+        // Use pageColor to tint white page areas so the sheet appears coloured
+        document.updateRenderOptions(forType: .all) { options in
+            options.pageColor = uiColor
+        }
+
+        // Reload to apply the new render options
+        pdfViewController?.reloadData()
+        completion(.success(true))
+    }
+
     // MARK: - Annotation Menu Delegate Methods
     
     

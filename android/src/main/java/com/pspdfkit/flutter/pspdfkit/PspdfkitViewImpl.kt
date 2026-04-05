@@ -1004,6 +1004,24 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
         }
     }
 
+    override fun setPageBackgroundColor(color: Long, callback: (Result<Boolean?>) -> Unit) {
+        try {
+            val androidColor = color.toInt()
+            // Android fallback: set the viewer background color behind pages
+            pdfUiFragment?.pdfFragment?.setBackgroundColor(androidColor)
+            callback(Result.success(true))
+        } catch (e: Exception) {
+            callback(
+                Result.failure(
+                    NutrientApiError(
+                        "Error setting page background color",
+                        e.message ?: "Unknown error"
+                    )
+                )
+            )
+        }
+    }
+
     override fun setAnnotationMenuConfiguration(
         configuration: com.pspdfkit.flutter.pspdfkit.api.AnnotationMenuConfigurationData,
         callback: (Result<Boolean?>) -> Unit

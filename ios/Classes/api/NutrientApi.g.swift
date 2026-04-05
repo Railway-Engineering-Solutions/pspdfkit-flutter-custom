@@ -1997,6 +1997,13 @@ protocol NutrientViewControllerApi {
   /// @param color The color to lock to, as an ARGB integer.
   /// @return True if the color was locked successfully, false otherwise.
   func setLockedAnnotationColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void)
+  /// Sets the background color of the PDF page content itself.
+  /// On iOS this tints white page areas using RenderOptions.pageColor.
+  /// On Android this sets the viewer background behind pages as a fallback.
+  ///
+  /// @param color The page background color as an ARGB integer.
+  /// @return True if the color was set successfully, false otherwise.
+  func setPageBackgroundColor(color: Int64, completion: @escaping (Result<Bool?, Error>) -> Void)
   /// Sets the annotation menu configuration for the current view controller.
   /// This configuration applies only to annotation menus in the current document view.
   ///
@@ -2447,6 +2454,29 @@ class NutrientViewControllerApiSetup {
       }
     } else {
       setLockedAnnotationColorChannel.setMessageHandler(nil)
+    }
+    /// Sets the background color of the PDF page content itself.
+    /// On iOS this tints white page areas using RenderOptions.pageColor.
+    /// On Android this sets the viewer background behind pages as a fallback.
+    ///
+    /// @param color The page background color as an ARGB integer.
+    /// @return True if the color was set successfully, false otherwise.
+    let setPageBackgroundColorChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setPageBackgroundColor\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setPageBackgroundColorChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let colorArg = args[0] as! Int64
+        api.setPageBackgroundColor(color: colorArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setPageBackgroundColorChannel.setMessageHandler(nil)
     }
     /// Sets the annotation menu configuration for the current view controller.
     /// This configuration applies only to annotation menus in the current document view.

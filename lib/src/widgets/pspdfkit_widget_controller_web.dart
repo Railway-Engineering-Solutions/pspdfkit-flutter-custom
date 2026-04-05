@@ -322,6 +322,12 @@ class PspdfkitWidgetControllerWeb extends PspdfkitWidgetController
     }
   }
 
+  @override
+  Future<bool?> setPageBackgroundColor(Color color) async {
+    // Legacy web controller — not supported
+    return false;
+  }
+
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor => pspdfkitInstance.defaultAnnotationColor;
 

@@ -189,6 +189,12 @@ class PspdfkitFlutterWidgetControllerImpl
   }
 
   @override
+  Future<bool?> setPageBackgroundColor(Color color) {
+    throw UnimplementedError(
+        'setPageBackgroundColor is not supported on the legacy PspdfkitWidgetController. Use NutrientViewController instead.');
+  }
+
+  @override
   Color? get defaultAnnotationColor {
     // Default color getting is currently only supported on Web platform
     throw UnimplementedError(

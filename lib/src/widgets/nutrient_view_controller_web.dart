@@ -590,6 +590,31 @@ class NutrientViewControllerWeb extends NutrientViewController
     }
   }
 
+  @override
+  Future<bool?> setPageBackgroundColor(Color color) async {
+    // Web fallback: style the page elements with a CSS background color.
+    try {
+      final r = (color.r * 255).round();
+      final g = (color.g * 255).round();
+      final b = (color.b * 255).round();
+      final css = 'rgb($r, $g, $b)';
+
+      // Inject a CSS rule targeting the PSPDFKit page layer
+      final doc = globalContext['document'] as JSObject;
+      final style = doc.callMethod('createElement'.toJS, 'style'.toJS) as JSObject;
+      style['textContent'] =
+          '.PSPDFKit-Page-Canvas { background-color: $css !important; }'.toJS;
+      final head = doc['head'] as JSObject;
+      head.callMethod('appendChild'.toJS, style);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting page background color on web: $e');
+      }
+      return false;
+    }
+  }
+
   /// Sets up event listeners to enforce the locked color on annotation
   /// create/update events and view state changes.
   void _setupLockedColorEnforcement() {

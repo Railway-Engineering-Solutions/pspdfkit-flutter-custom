@@ -126,6 +126,11 @@ abstract class NutrientViewController {
   /// ```
   Future<bool?> setLockedAnnotationColor(Color color);
 
+  /// Sets the background color of the PDF page content.
+  /// On iOS this tints white page areas so the sheet appears coloured.
+  /// On Android/Web this sets the viewer background as a fallback.
+  Future<bool?> setPageBackgroundColor(Color color);
+
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor;
 }

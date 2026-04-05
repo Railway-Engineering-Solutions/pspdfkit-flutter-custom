@@ -184,6 +184,10 @@ class _LegacyControllerWrapper extends PspdfkitWidgetController {
       _delegate.setLockedAnnotationColor(color);
 
   @override
+  Future<bool?> setPageBackgroundColor(Color color) =>
+      _delegate.setPageBackgroundColor(color);
+
+  @override
   Future<bool?> setUserInteractionEnabled(bool enabled) =>
       _delegate.setUserInteractionEnabled(enabled);
 

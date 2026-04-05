@@ -155,6 +155,9 @@ abstract class PspdfkitWidgetController {
   /// Locks annotation color to a single color for all annotation tools.
   Future<bool?> setLockedAnnotationColor(Color color);
 
+  /// Sets the background color of the PDF page content.
+  Future<bool?> setPageBackgroundColor(Color color);
+
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor;
 }

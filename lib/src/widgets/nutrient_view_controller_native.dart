@@ -157,6 +157,12 @@ class NutrientViewControllerNative
   }
 
   @override
+  Future<bool?> setPageBackgroundColor(Color color) async {
+    final int colorValue = color.value;
+    return _pspdfkitWidgetControllerApi.setPageBackgroundColor(colorValue);
+  }
+
+  @override
   Color? get defaultAnnotationColor => _defaultAnnotationColor;
 
   @override

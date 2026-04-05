@@ -606,6 +606,15 @@ abstract class NutrientViewControllerApi {
   @async
   bool? setLockedAnnotationColor(int color);
 
+  /// Sets the background color of the PDF page content itself.
+  /// On iOS this tints white page areas using RenderOptions.pageColor.
+  /// On Android this sets the viewer background behind pages as a fallback.
+  ///
+  /// @param color The page background color as an ARGB integer.
+  /// @return True if the color was set successfully, false otherwise.
+  @async
+  bool? setPageBackgroundColor(int color);
+
   /// Sets the annotation menu configuration for the current view controller.
   /// This configuration applies only to annotation menus in the current document view.
   ///

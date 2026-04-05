@@ -2119,6 +2119,15 @@ interface NutrientViewControllerApi {
    */
   fun setLockedAnnotationColor(color: Long, callback: (Result<Boolean?>) -> Unit)
   /**
+   * Sets the background color of the PDF page content itself.
+   * On iOS this tints white page areas using RenderOptions.pageColor.
+   * On Android this sets the viewer background behind pages as a fallback.
+   *
+   * @param color The page background color as an ARGB integer.
+   * @return True if the color was set successfully, false otherwise.
+   */
+  fun setPageBackgroundColor(color: Long, callback: (Result<Boolean?>) -> Unit)
+  /**
    * Sets the annotation menu configuration for the current view controller.
    * This configuration applies only to annotation menus in the current document view.
    *
@@ -2568,6 +2577,26 @@ interface NutrientViewControllerApi {
             val args = message as List<Any?>
             val colorArg = args[0] as Long
             api.setLockedAnnotationColor(colorArg) { result: Result<Boolean?> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setPageBackgroundColor$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val colorArg = args[0] as Long
+            api.setPageBackgroundColor(colorArg) { result: Result<Boolean?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

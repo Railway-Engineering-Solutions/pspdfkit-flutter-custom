@@ -2743,6 +2743,35 @@ class NutrientViewControllerApi {
     }
   }
 
+  /// Sets the background color of the PDF page content itself.
+  /// On iOS this tints white page areas using RenderOptions.pageColor.
+  /// On Android this sets the viewer background behind pages as a fallback.
+  ///
+  /// @param color The page background color as an ARGB integer.
+  /// @return True if the color was set successfully, false otherwise.
+  Future<bool?> setPageBackgroundColor(int color) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.setPageBackgroundColor$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[color]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?);
+    }
+  }
+
   /// Sets the annotation menu configuration for the current view controller.
   /// This configuration applies only to annotation menus in the current document view.
   ///
