@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v9';
+  static const _buildId = 'nutrient-web-controller-v10';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -591,93 +591,95 @@ class NutrientViewControllerWeb extends NutrientViewController
       final cssAlpha = 'rgba($r, $g, $b, 0.15)';
 
       final script = '''
-(function(css, r, g, b) {
-  var V = '[PageBG-v9] ';
+(function(css, cssAlpha) {
+  var V = '[PageBG-v10] ';
   console.log(V + 'Starting: ' + css);
 
-  // 1. Set viewport/app background via CSS variables
+  // The SDK renders via WebAssembly/WebGL — no <canvas> elements in the DOM.
+  // Use a CSS mix-blend-mode overlay on the page container elements.
+
+  // 1. Set viewport background
   var root = document.querySelector('[class^="PSPDFKit-"]');
   if (root) {
     root.style.setProperty('--PSPDFKit-Viewport-background', css);
     root.style.setProperty('--PSPDFKit-App-background', css);
   }
 
-  // 2. Find ALL canvases in the document and check if they're inside
-  //    the SDK container or an iframe/shadow DOM
-  function findCanvases() {
-    // Try direct document search
-    var all = document.querySelectorAll('canvas');
-    if (all.length > 0) return all;
+  // 2. Inject a global style to tint page containers.
+  //    The SDK page class is like PSPDFKit-<hash>. We find them by looking
+  //    for elements with role or data attributes, or by their structure.
+  //    Add a ::after pseudo-element with mix-blend-mode: multiply for
+  //    a natural coloured-paper effect.
+  var style = document.createElement('style');
+  style.textContent = `
+    .trax-page-tint {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: ` + cssAlpha + ` !important;
+      mix-blend-mode: multiply !important;
+      pointer-events: none !important;
+      z-index: 1 !important;
+    }
+  `;
+  document.head.appendChild(style);
 
-    // Try iframes
-    var iframes = document.querySelectorAll('iframe');
-    for (var i = 0; i < iframes.length; i++) {
-      try {
-        var iDoc = iframes[i].contentDocument;
-        if (iDoc) {
-          var ic = iDoc.querySelectorAll('canvas');
-          if (ic.length > 0) return ic;
+  // 3. Find page elements and add overlay divs
+  function findPageElements() {
+    // SDK pages are large positioned elements inside the PSPDFKit container.
+    // They have absolute/relative positioning and contain the rendered page.
+    var candidates = document.querySelectorAll('[class^="PSPDFKit-"]');
+    var pages = [];
+    for (var i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      var rect = el.getBoundingClientRect();
+      // Page elements are large (>200px both dimensions) and positioned
+      if (rect.width > 200 && rect.height > 200) {
+        var cs = window.getComputedStyle(el);
+        if (cs.position === 'absolute' || cs.position === 'relative') {
+          // Check it looks like a page (has children, not the root container)
+          if (el.children.length > 0 && el.children.length < 20) {
+            pages.push(el);
+          }
         }
-      } catch(e) {}
-    }
-
-    // Try shadow DOMs
-    var shadows = document.querySelectorAll('[class^="PSPDFKit-"]');
-    for (var i = 0; i < shadows.length; i++) {
-      if (shadows[i].shadowRoot) {
-        var sc = shadows[i].shadowRoot.querySelectorAll('canvas');
-        if (sc.length > 0) return sc;
       }
     }
-    return [];
+    return pages;
   }
 
-  function tintCanvas(canvas) {
-    try {
-      var ctx = canvas.getContext('2d');
-      if (!ctx) return false;
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-over';
-      ctx.fillStyle = css;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
-      return true;
-    } catch(e) {
-      console.log(V + 'tintCanvas error: ' + e.message);
-      return false;
-    }
-  }
-
-  var logCount = 0;
-  function applyTint() {
-    var canvases = findCanvases();
-    var tinted = 0, failed = 0;
-    for (var i = 0; i < canvases.length; i++) {
-      var c = canvases[i];
-      if (c.width > 100 && c.height > 100) {
-        if (tintCanvas(c)) tinted++;
-        else failed++;
+  function applyOverlays() {
+    var pages = findPageElements();
+    var added = 0;
+    for (var i = 0; i < pages.length; i++) {
+      var page = pages[i];
+      if (page.querySelector('.trax-page-tint')) continue;
+      var cs = window.getComputedStyle(page);
+      if (cs.position !== 'relative' && cs.position !== 'absolute') {
+        page.style.position = 'relative';
       }
+      var overlay = document.createElement('div');
+      overlay.className = 'trax-page-tint';
+      page.appendChild(overlay);
+      added++;
     }
-    logCount++;
-    if (logCount <= 10) {
-      console.log(V + 'canvases=' + canvases.length + ' tinted=' + tinted + ' failed=' + failed);
-    }
+    if (added > 0) console.log(V + 'Added overlays to ' + added + ' pages (total found: ' + pages.length + ')');
   }
 
-  // Initial attempt + retry after a delay for lazy rendering
-  applyTint();
-  setTimeout(applyTint, 500);
-  setTimeout(applyTint, 1500);
-  setTimeout(applyTint, 3000);
+  // Apply now + retries
+  applyOverlays();
+  setTimeout(applyOverlays, 500);
+  setTimeout(applyOverlays, 1500);
+  setTimeout(applyOverlays, 3000);
 
   // Re-apply on DOM changes
   var observer = new MutationObserver(function() {
-    requestAnimationFrame(applyTint);
+    requestAnimationFrame(applyOverlays);
   });
   observer.observe(document.body, {childList: true, subtree: true});
-  console.log(V + 'Observer set up on document.body');
-})('$css', $r, $g, $b)
+  console.log(V + 'Observer active');
+})('$css', 'rgba($r, $g, $b, 0.15)')
 ''';
 
       globalContext.callMethod('eval'.toJS, script.toJS);
