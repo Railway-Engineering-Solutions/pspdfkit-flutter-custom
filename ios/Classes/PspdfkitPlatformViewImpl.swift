@@ -23,6 +23,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
     private var annotationMenuConfiguration: AnnotationMenuConfigurationData? = nil;
     private var lastReportedPageIndex: Int? = nil;
     private var defaultAnnotationColor: Int? = nil;
+    private var lockedAnnotationColor: UIColor? = nil;
     
     
     @objc public func setViewController(controller: PDFViewController){
@@ -452,6 +453,9 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
             alpha: CGFloat((color >> 24) & 0xFF) / 255.0
         )
 
+        // Store locked color for enforcement in the style inspector
+        lockedAnnotationColor = uiColor
+
         let styleManager = SDK.shared.styleManager
         let singleColorPreset = [ColorPreset(color: uiColor)]
 
@@ -486,7 +490,31 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
             styleManager.setPresets(singleColorPreset, forKey: tool, type: .colorPreset)
         }
 
+        // Observe annotation changes to revert any unauthorized color modifications
+        NotificationCenter.default.removeObserver(self, name: .PSPDFAnnotationChanged, object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(enforceLockedAnnotationColor(_:)),
+            name: .PSPDFAnnotationChanged,
+            object: nil
+        )
+
         completion(.success(true))
+    }
+
+    @objc private func enforceLockedAnnotationColor(_ notification: Notification) {
+        guard let lockedColor = lockedAnnotationColor,
+              let annotation = notification.object as? Annotation else { return }
+
+        // Re-apply the locked color if it was changed
+        if annotation.color != lockedColor {
+            annotation.color = lockedColor
+        }
+        if let fillableAnnotation = annotation as? FreeTextAnnotation {
+            if fillableAnnotation.fillColor != lockedColor {
+                fillableAnnotation.fillColor = lockedColor
+            }
+        }
     }
 
     // MARK: - Annotation Menu Delegate Methods
@@ -523,6 +551,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         if AnnotationsPresetConfigurations.hasCustomStampsConfigured() {
             stampController?.dateStampsEnabled = false
         }
+
         return true
     }
 
