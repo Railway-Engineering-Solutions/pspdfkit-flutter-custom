@@ -578,32 +578,41 @@ class NutrientViewControllerWeb extends NutrientViewController
 
   @override
   Future<bool?> setPageBackgroundColor(Color color) async {
-    // Web: inject CSS to set page background color.
-    // Target multiple possible class names (PSPDFKit legacy + NutrientViewer).
+    // Web: the SDK uses hashed class names (PSPDFKit-2z5hjphww7...) so CSS
+    // selectors can't target pages reliably. Instead, find the SDK's
+    // contentDocument and apply background via a MutationObserver that
+    // styles new page elements as they appear.
     try {
       final r = (color.r * 255).round();
       final g = (color.g * 255).round();
       final b = (color.b * 255).round();
       final css = 'rgb($r, $g, $b)';
 
-      final cssRule = '''
-.PSPDFKit-Page-Canvas,
-.PSPDFKit-Spread,
-.PSPDFKit-Page,
-[class*="Page-canvas"],
-[class*="page-canvas"],
-[class*="Spread"],
-[class*="Page_page"] {
-  background-color: $css !important;
-}
+      // Use JS to find the PSPDFKit container and apply background to
+      // all elements with class starting with PSPDFKit- that contain a canvas.
+      // Also set up a MutationObserver to handle pages loaded lazily.
+      final script = '''
+(function(css) {
+  function applyBg() {
+    var pages = document.querySelectorAll('[class^="PSPDFKit-"]');
+    for (var i = 0; i < pages.length; i++) {
+      var el = pages[i];
+      if (el.querySelector && el.querySelector('canvas')) {
+        el.style.backgroundColor = css;
+      }
+    }
+  }
+  applyBg();
+  var observer = new MutationObserver(function() { applyBg(); });
+  var container = document.querySelector('[class^="PSPDFKit-"]');
+  if (container) {
+    observer.observe(container.parentElement || document.body, {childList: true, subtree: true});
+  }
+})('$css')
 ''';
 
-      final doc = globalContext['document'] as JSObject;
-      final style = doc.callMethod('createElement'.toJS, 'style'.toJS) as JSObject;
-      style['textContent'] = cssRule.toJS;
-      final head = doc['head'] as JSObject;
-      head.callMethod('appendChild'.toJS, style);
-      if (kDebugMode) print('[NutrientWeb] Page background CSS injected: $css');
+      globalContext.callMethod('eval'.toJS, script.toJS);
+      if (kDebugMode) print('[NutrientWeb] Page background applied via JS: $css');
       return true;
     } catch (e) {
       if (kDebugMode) {
