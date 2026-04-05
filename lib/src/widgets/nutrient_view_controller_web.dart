@@ -36,7 +36,11 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  NutrientViewControllerWeb(this.instance);
+  static const _buildId = 'nutrient-web-controller-v2';
+
+  NutrientViewControllerWeb(this.instance) {
+    if (kDebugMode) print('[$_buildId] Controller created');
+  }
 
   // Map to store web event listeners for removal.
   final Map<NutrientWebEvent, Map<Function, JSFunction>> _webEventListeners =
