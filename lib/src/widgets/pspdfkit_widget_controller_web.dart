@@ -1,4 +1,4 @@
-///  Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+///  Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 ///
 ///  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 ///  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -8,8 +8,6 @@
 ///
 
 import 'dart:ui';
-
-import 'dart:js';
 
 import 'package:flutter/foundation.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
@@ -21,6 +19,8 @@ import '../web/nutrient_web.dart'
     if (dart.library.io) '../web/nutrient_web_stub.dart';
 import '../web/nutrient_web_instance.dart'
     if (dart.library.io) '../web/nutrient_web_instance_stub.dart';
+import '../web/nutrient_web_utils.dart'
+    if (dart.library.io) '../web/nutrient_web_utils_stub.dart';
 
 /// A controller for a PSPDFKit widget for Web.
 @Deprecated('Please use the new [NutrientViewControllerWeb] instead.')
@@ -146,10 +146,11 @@ class PspdfkitWidgetControllerWeb extends PspdfkitWidgetController
       NutrientEvent event, Function(dynamic) callback) async {
     // Note: This uses the older NutrientEvent enum.
     // The underlying instance call is the same, so use the common processor.
-    pspdfkitInstance.addEventListener(event.webName,
-        allowInterop((dynamic data) {
-      _processAndInvokeCallback(data, callback, event);
-    }));
+    pspdfkitInstance.addEventListener(
+        event.webName,
+        jsAllowInterop((dynamic data) {
+          _processAndInvokeCallback(data, callback, event);
+        }) as Function(dynamic));
   }
 
   @override
@@ -167,7 +168,7 @@ class PspdfkitWidgetControllerWeb extends PspdfkitWidgetController
   @override
   void addWebEventListener(NutrientWebEvent event, Function(dynamic) callback) {
     // Create the wrapped JS function that calls our common processor
-    final Function wrappedJsFunction = allowInterop((dynamic data) {
+    final Function wrappedJsFunction = jsAllowInterop((dynamic data) {
       _processAndInvokeCallback(data, callback, event);
     });
 

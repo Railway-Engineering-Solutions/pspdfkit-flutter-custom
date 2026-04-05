@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+ * Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
  * <p>
  * THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
  * AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -8,7 +8,7 @@
  */
 package com.pspdfkit.flutter.pspdfkit
 
-///  Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+///  Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 ///
 ///  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 ///  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -26,8 +26,10 @@ import com.pspdfkit.document.DocumentSaveOptions
 import com.pspdfkit.document.PdfDocument
 import com.pspdfkit.flutter.pspdfkit.api.PdfDocumentApi
 import com.pspdfkit.flutter.pspdfkit.api.AnnotationManagerApi
+import com.pspdfkit.flutter.pspdfkit.api.BookmarkManagerApi
 import com.pspdfkit.flutter.pspdfkit.document.FlutterPdfDocument
 import com.pspdfkit.flutter.pspdfkit.document.AnnotationManagerImpl
+import com.pspdfkit.flutter.pspdfkit.document.BookmarkManagerImpl
 import com.pspdfkit.flutter.pspdfkit.util.MeasurementHelper
 import com.pspdfkit.listeners.DocumentListener
 import com.pspdfkit.ui.PdfFragment
@@ -41,13 +43,15 @@ private const val LOG_TAG = "FlutterPdfUiCallbacks"
  * Callbacks for the FlutterPdfUiFragment.
  * This class is responsible for notifying the Flutter side about document loading events.
  * It also sets up the PdfDocumentApi for the FlutterPdfDocument.
+ * @param viewId The platform view ID for this fragment.
  * @param methodChannel The method channel to communicate with the Flutter side.
  * @param measurementConfigurations The measurement configurations to apply to the PdfFragment.
  * @param binaryMessenger The binary messenger to communicate with the Flutter side.
  * @param flutterWidgetCallback The callback to notify the Flutter side about document loading events.
  */
 class FlutterPdfUiFragmentCallbacks(
-    private val methodChannel: MethodChannel, 
+    private val viewId: Int,
+    private val methodChannel: MethodChannel,
     private val measurementConfigurations: List<Map<String, Any>>?,
     private val binaryMessenger: BinaryMessenger,
     private val flutterWidgetCallback: FlutterWidgetCallback,
@@ -56,6 +60,7 @@ class FlutterPdfUiFragmentCallbacks(
 
     private var pdfFragment: PdfFragment? = null
     private var flutterPdfDocument: FlutterPdfDocument? = null
+    private var bookmarkManager: BookmarkManagerImpl? = null
 
     override fun onFragmentAttached(
         fm: FragmentManager,
@@ -73,6 +78,17 @@ class FlutterPdfUiFragmentCallbacks(
             }
             pdfFragment = f
             pdfFragment?.addDocumentListener(this)
+
+            // Register the PdfFragment in the static registry for adapter access via JNI
+            PSPDFKitView.registerPdfFragment(viewId, f)
+
+            // Notify Dart that the PdfFragment is ready for adapter access
+            try {
+                methodChannel.invokeMethod("onPdfFragmentReady", null)
+                Log.d(LOG_TAG, "Sent onPdfFragmentReady notification to Dart")
+            } catch (e: Exception) {
+                Log.e(LOG_TAG, "Error sending onPdfFragmentReady notification", e)
+            }
         }
     }
 
@@ -99,6 +115,11 @@ class FlutterPdfUiFragmentCallbacks(
             // Set up AnnotationManagerApi with documentId_annotation_manager as channel suffix
             val annotationManager = AnnotationManagerImpl(document)
             AnnotationManagerApi.setUp(binaryMessenger, annotationManager, "${document.uid}_annotation_manager")
+
+            // Set up BookmarkManagerApi with documentId_bookmark_manager as channel suffix
+            bookmarkManager = BookmarkManagerImpl()
+            bookmarkManager?.initialize(document.uid)
+            BookmarkManagerApi.setUp(binaryMessenger, bookmarkManager, "${document.uid}_bookmark_manager")
         } catch (e: Exception) {
             Log.e(LOG_TAG, "Error setting up FlutterPdfDocument", e)
         }
@@ -168,10 +189,17 @@ class FlutterPdfUiFragmentCallbacks(
             if (pdfFragment == f) {
                 pdfFragment?.removeDocumentListener(this)
 
+                // Unregister the PdfFragment from the static registry
+                PSPDFKitView.unregisterPdfFragment(viewId)
+
                 // Cleanup document registration
                 flutterPdfDocument?.let { doc ->
                     FlutterPdfDocument.unregisterDocument(doc.pdfDocument.uid)
                 }
+
+                // Cleanup bookmark manager to dispose RxJava subscriptions
+                bookmarkManager?.dispose()
+                bookmarkManager = null
 
                 pdfFragment = null
                 flutterPdfDocument = null

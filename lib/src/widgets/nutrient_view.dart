@@ -1,5 +1,5 @@
 ///
-///  Copyright © 2018-2025 PSPDFKit GmbH. All rights reserved.
+///  Copyright © 2018-2026 PSPDFKit GmbH. All rights reserved.
 ///
 ///  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 ///  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -17,6 +17,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'nutrient_view_controller_native.dart';
+
+// Conditional imports for platform-specific adapter bridging
+import 'adapter_bridge_stub.dart'
+    if (dart.library.io) 'adapter_bridge_native.dart';
 
 /// A widget that displays a PDF document using Nutrient.
 class NutrientView extends StatefulWidget {
@@ -54,6 +58,32 @@ class NutrientView extends StatefulWidget {
   /// These annotations will be added automatically after the document loads.
   final List<Annotation>? initialAnnotations;
 
+  /// Optional adapter for native SDK access.
+  ///
+  /// If provided, the adapter will receive native instance callbacks,
+  /// enabling direct access to the native SDK (PdfFragment on Android,
+  /// PSPDFViewController on iOS) via JNI/FFI bindings.
+  ///
+  /// This is an advanced feature for users who need to access native SDK
+  /// functionality not exposed through the standard Pigeon-based API.
+  ///
+  /// Example:
+  /// ```dart
+  /// class MyAdapter extends AndroidAdapter {
+  ///   @override
+  ///   Future<void> onPdfFragmentReady(PdfFragment pdfFragment) async {
+  ///     // Direct JNI access to Android SDK
+  ///     final pageCount = pdfFragment.getDocument()?.getPageCount();
+  ///   }
+  /// }
+  ///
+  /// NutrientView(
+  ///   documentPath: 'assets/document.pdf',
+  ///   adapter: MyAdapter(),
+  /// )
+  /// ```
+  final NutrientPlatformAdapter? adapter;
+
   /// Creates a new [NutrientView] widget.
   const NutrientView({
     Key? key,
@@ -68,6 +98,7 @@ class NutrientView extends StatefulWidget {
     this.customToolbarItems = const [],
     this.onCustomToolbarItemTapped,
     this.initialAnnotations,
+    this.adapter,
   }) : super(key: key);
 
   @override
@@ -172,6 +203,16 @@ class _NutrientViewState extends State<NutrientView> {
       onDocumentSavedListener: widget.onDocumentSaved,
       onCustomToolbarItemTappedListener: widget.onCustomToolbarItemTapped,
     );
+
+    // Setup adapter bridge if an adapter is provided
+    if (widget.adapter != null) {
+      AdapterBridge.setup(
+        viewId: id,
+        channel: channel,
+        adapter: widget.adapter!,
+      );
+    }
+
     widget.onViewCreated?.call(controller);
     if (controller is NutrientViewControllerNative) {
       NutrientViewCallbacks.setUp(controller as NutrientViewControllerNative,
@@ -206,6 +247,11 @@ class _NutrientViewState extends State<NutrientView> {
 
   @override
   void dispose() {
+    // Dispose adapter bridge if one was set up
+    if (widget.adapter != null && _id != null) {
+      AdapterBridge.dispose(_id!);
+    }
+
     NutrientViewCallbacks.setUp(null,
         messageChannelSuffix: 'widget.callbacks.$_id');
     NutrientEventsCallbacks.setUp(null,

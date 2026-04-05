@@ -1,5 +1,5 @@
 //
-//  Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+//  Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 //
 //  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 //  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -71,7 +71,6 @@ class PspdfkitFlutterHelper: NSObject {
             do {
                 try fileManager.createDirectory(atPath: (writableFileURL.path as NSString).deletingLastPathComponent, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                print("Failed to create directory: \(error.localizedDescription)")
                 return nil
             }
             
@@ -79,7 +78,6 @@ class PspdfkitFlutterHelper: NSObject {
                 do {
                     try fileManager.copyItem(at: fileURL, to: writableFileURL)
                 } catch {
-                    print("Failed to copy item at URL '\(path)' with error: \(error.localizedDescription)")
                     return nil
                 }
             }
@@ -114,7 +112,7 @@ class PspdfkitFlutterHelper: NSObject {
         var leftItems = [UIBarButtonItem]()
         for barButtonItemString in items {
             if let barButtonItem = barButtonItem(fromString: barButtonItemString, for: pdfViewController),
-               ((pdfViewController.navigationItem.rightBarButtonItems?.contains(barButtonItem)) == nil) {
+               !(pdfViewController.navigationItem.rightBarButtonItems?.contains(barButtonItem) ?? false) {
                 leftItems.append(barButtonItem)
             }
         }
@@ -128,7 +126,7 @@ class PspdfkitFlutterHelper: NSObject {
         var rightItems = [UIBarButtonItem]()
         for barButtonItemString in items {
             if let barButtonItem = barButtonItem(fromString: barButtonItemString, for: pdfViewController),
-               ((pdfViewController.navigationItem.leftBarButtonItems?.contains(barButtonItem)) == nil) {
+               !(pdfViewController.navigationItem.leftBarButtonItems?.contains(barButtonItem) ?? false) {
                 rightItems.append(barButtonItem)
             }
         }
@@ -269,8 +267,12 @@ class PspdfkitFlutterHelper: NSObject {
     }
     
     // MARK: - Instant JSON
-    
+
     static func addAnnotation(_ jsonAnnotation: Any, for document: Document) throws -> Bool {
+        return try addAnnotation(jsonAnnotation, attachment: nil, for: document)
+    }
+
+    static func addAnnotation(_ jsonAnnotation: Any, attachment: String?, for document: Document) throws -> Bool {
 
         let data: Data?
         if let jsonString = jsonAnnotation as? String {
@@ -280,22 +282,43 @@ class PspdfkitFlutterHelper: NSObject {
         } else {
             throw NutrientApiError(code: "", message: "Invalid JSON Annotation.", details : nil)
         }
-        
+
         guard let annotationData = data else {
             throw NutrientApiError(code: "", message: "Invalid JSON Annotation.", details: nil)
         }
-        
+
         let documentProvider = document.documentProviders.first!
-        let annotation = try? Annotation(fromInstantJSON: annotationData, documentProvider: documentProvider)
-        if annotation == nil {
-            throw NutrientApiError(code: "", message: "Failed to create annotation from JSON.", details: nil)
+
+        // Handle attachment if provided
+        var attachmentDataProvider: DataProviding? = nil
+        if let attachmentJson = attachment,
+           let attachmentData = attachmentJson.data(using: .utf8),
+           let attachmentDict = try? JSONSerialization.jsonObject(with: attachmentData) as? [String: Any],
+           let binary = attachmentDict["binary"] as? String,
+           let binaryData = Data(base64Encoded: binary) {
+            attachmentDataProvider = DataContainerProvider(data: binaryData)
         }
-        
-        let success = document.add(annotations: [annotation!], options: nil)
-        if !success {
-            throw NutrientApiError(code: "", message: "Failed to add annotation.", details: nil)
+
+        let annotation: Annotation?
+        if let provider = attachmentDataProvider {
+            // addAnnotation(fromInstantJSON:attachmentDataProvider:) both creates and adds the annotation
+            // It throws on failure, so we use try? and check for nil
+            annotation = try? documentProvider.addAnnotation(fromInstantJSON: annotationData, attachmentDataProvider: provider)
+            if annotation == nil {
+                throw NutrientApiError(code: "", message: "Failed to add annotation with attachment.", details: nil)
+            }
+        } else {
+            annotation = try? Annotation(fromInstantJSON: annotationData, documentProvider: documentProvider)
+            if let ann = annotation {
+                let success = document.add(annotations: [ann], options: nil)
+                if !success {
+                    throw NutrientApiError(code: "", message: "Failed to add annotation.", details: nil)
+                }
+            } else {
+                throw NutrientApiError(code: "", message: "Failed to create annotation from JSON.", details: nil)
+            }
         }
-        
+
         return true
     }
     
@@ -318,7 +341,7 @@ class PspdfkitFlutterHelper: NSObject {
     
     static func removeAnnotation(_ jsonAnnotation: Any, for document: Document) throws -> Bool {
         var annotationDict: [String: Any]?
-        
+
         if let jsonString = jsonAnnotation as? String {
             if let jsonData = jsonString.data(using: .utf8),
                let jsonDict = try? JSONSerialization.jsonObject(with: jsonData, options: .allowFragments) as? [String: Any] {
@@ -327,36 +350,58 @@ class PspdfkitFlutterHelper: NSObject {
         } else if let jsonDict = jsonAnnotation as? [String: Any] {
             annotationDict = jsonDict
         }
-        
+
         guard let dict = annotationDict else {
             throw NutrientApiError(code: "", message: "Invalid annotation data.", details: nil)
         }
-        
-        // Try to get identifier information, looking for name first (for consistency)
-        // Web platform uses "id" field, iOS/Android use "uuid" field - support both
+
+        // Try to get identifier information
+        // "name" is the user-defined name
+        // "id" is the Instant JSON identifier (maps to annotation's uuid or internal id)
         let name = dict["name"] as? String
-        let uuid = dict["uuid"] as? String ?? dict["id"] as? String
-        
-        if name == nil && uuid == nil {
-            throw NutrientApiError(code: "", message: "Annotation has no identifier (name, uuid, or id).", details: nil)
+        let instantId = dict["id"] as? String
+
+        if name == nil && instantId == nil {
+            throw NutrientApiError(code: "", message: "Annotation has no identifier (name or id).", details: nil)
         }
-        
+
         let allAnnotations = document.allAnnotations(of: .all).values.flatMap { $0 }
-        
-        // First search by name, then by UUID if available
+
+        // Try to find the annotation using multiple strategies:
+        // 1. First try by name (most reliable for user-created annotations)
+        // 2. Then try by uuid property
+        // 3. Finally try by matching the Instant JSON id
         var foundAnnotation: Annotation?
+
         if let name = name {
             foundAnnotation = allAnnotations.first { $0.name == name }
         }
-        
-        if foundAnnotation == nil, let uuid = uuid {
-            foundAnnotation = allAnnotations.first { $0.uuid == uuid }
+
+        if foundAnnotation == nil, let instantId = instantId {
+            // Try matching by uuid property
+            foundAnnotation = allAnnotations.first { $0.uuid == instantId }
+
+            // If still not found, try matching by the id in the annotation's Instant JSON
+            if foundAnnotation == nil {
+                foundAnnotation = allAnnotations.first { ann in
+                    do {
+                        let jsonData = try ann.generateInstantJSON()
+                        if let annJson = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                           let annId = annJson["id"] as? String {
+                            return annId == instantId
+                        }
+                    } catch {
+                        // Ignore errors getting Instant JSON
+                    }
+                    return false
+                }
+            }
         }
-        
+
         guard let annotation = foundAnnotation else {
             return false // Annotation not found, but not an error
         }
-        
+
         let success = document.remove(annotations: [annotation], options: nil)
         return success
     }
@@ -423,16 +468,14 @@ class PspdfkitFlutterHelper: NSObject {
     
     static func applyInstantJson(annotationsJson: String, document: Document) throws -> Bool {
         guard let jsonData = annotationsJson.data(using: .utf8) else {
-            print("Invalid JSON data.")
             throw NutrientApiError(code: "", message: "Invalid JSON data.", details : nil)
         }
-        
+
         let jsonContainer = DataContainerProvider(data: jsonData)
         do {
             try document.applyInstantJSON(fromDataProvider: jsonContainer, to: document.documentProviders.first!, lenient: false)
             return true
         } catch {
-            print("Error while importing document Instant JSON: \(error.localizedDescription)")
             throw NutrientApiError(code: "", message: "Error while importing document Instant JSON.", details: error.localizedDescription)
         }
     }

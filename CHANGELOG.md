@@ -1,5 +1,44 @@
 ## Next release
 
+## 5.4.1 - 22 Feb 2026
+
+- Updates to Nutrient iOS SDK 26.5.0. (#50888)
+- Fixes an iOS issue where the `AdapterBridge` couldn’t retrieve the `PSPDFViewController` via FFI when using `NutrientView` with a platform adapter. (#50888)
+
+## 5.4.0 - 18 Feb 2026
+
+- [**Beta**] Adds federated plugin architecture with platform-specific packages (`nutrient_flutter_platform_interface`, `nutrient_flutter_android`, `nutrient_flutter_ios`, `nutrient_flutter_web`) for native SDK bindings via JNI (Android), FFI (iOS), and `dart:js_interop` (Web). Refer to the [platform adapters](/guides/flutter/platform-adapters/) guide for details. (J#HYB-895)
+- [**Beta**] Adds platform adapter APIs (`NutrientPlatformAdapter`, `NutrientController`, `NutrientViewHandle`), enabling direct native SDK access alongside the existing Pigeon-based API. (J#HYB-895)
+- Adds platform adapter examples demonstrating native SDK customization, event handling, and UI configuration. (J#HYB-895)
+- Adds the `ThemeConfiguration` class to `PdfConfiguration` for configuring the viewer’s theme, including support for light, dark, and custom themes. (J#HYB-947)
+- Updates web conditional exports to use `dart.library.js_interop`, replacing the deprecated `dart.library.html`. (J#HYB-895)
+- Fixes an Android crash when using the `startPage` configuration option. (J#HYB-948)
+- Fixes an iOS issue where `iOSRightBarButtonItems` and `iOSLeftBarButtonItems` weren’t displayed. (J#HYB-948)
+
+
+## 5.3.1 - 26 Jan 2026
+
+- Fixes an Android crash when adding image annotations with the `annotationsCreated` event listener active. (#50437)
+- Fixes a type cast error when parsing `GoToAction` link annotations with integer parameters. (#50437)
+
+## 5.3.0 — 22 Jan 2026
+
+- Adds a headless document API for opening and manipulating PDF documents without displaying a viewer. (J#HYB-931)
+- Adds programmatic bookmark management APIs to `PdfDocument` for creating, reading, updating, and deleting bookmarks. (J#HYB-932)
+- Adds document dirty state APIs for tracking unsaved changes with cross-platform `hasUnsavedChanges()` and platform-specific methods. (J#HYB-934)
+- Adds the `iOSFileConflictResolution` configuration option to handle file conflicts when a PDF is modified externally on iOS. (J#HYB-933)
+- Adds the `CustomStampItem` class for configuring custom stamps with colors (iOS) and subtitles (iOS/Android).
+- Improves the annotation properties API (J#HYB-935):
+  - Fixes the text annotation font color being reset to black when updating other properties like opacity (Web).
+  - Fixes the ink annotation line width property not being applied correctly.
+  - Fixes the `pspdfkit/undefined` type exception when adding or removing text annotations.
+  - Fixes `getAnnotationProperties` returning null for valid annotations.
+  - Makes `Annotation` class properties immutable; use `AnnotationProperties` and `AnnotationManager` for updates.
+- Updates to Nutrient iOS SDK 26.4.0.
+- Updates to Nutrient Android SDK 10.10.1.
+- Fixes an Android issue where the PDF view was hidden behind the keyboard when editing form fields. (J#HYB-929)
+- Adds `enableFormEditing` configuration option to `PdfConfiguration` for controlling form field editing independently from annotation editing on iOS and Android. (J#HYB-925)
+
 ## 5.2.0 - 13 Oct 2025
 
 - Introduces `AnnotationProperties` class to manage and update annotation properties such as color, opacity, line width, flags, and custom data. (J#HYB-879)

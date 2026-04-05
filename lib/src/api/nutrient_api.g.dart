@@ -1,4 +1,4 @@
-// Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+// Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 //
 // THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 // AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -485,6 +485,29 @@ class FormFieldData {
   }
 }
 
+/// Options for opening a document without a viewer (headless mode).
+class HeadlessDocumentOpenOptions {
+  HeadlessDocumentOpenOptions({
+    this.password,
+  });
+
+  /// Password for encrypted documents.
+  String? password;
+
+  Object encode() {
+    return <Object?>[
+      password,
+    ];
+  }
+
+  static HeadlessDocumentOpenOptions decode(Object result) {
+    result as List<Object?>;
+    return HeadlessDocumentOpenOptions(
+      password: result[0] as String?,
+    );
+  }
+}
+
 class PointF {
   PointF({
     required this.x,
@@ -634,6 +657,10 @@ class AnnotationMenuConfigurationData {
 /// **Data Preservation**: Unlike the deprecated `updateAnnotation` method,
 /// this approach preserves attachments, custom data, and other properties
 /// that are not being explicitly modified.
+///
+/// **Note on inkLines, customData, bbox, and flags**: These fields are serialized as JSON
+/// strings internally to avoid Pigeon's CastList type casting issues. Use the
+/// extension methods for typed access (e.g., `inkLines`, `customData`, `boundingBox`, `flagsSet`).
 class AnnotationProperties {
   AnnotationProperties({
     required this.annotationId,
@@ -642,14 +669,14 @@ class AnnotationProperties {
     this.fillColor,
     this.opacity,
     this.lineWidth,
-    this.flags,
-    this.customData,
+    this.flagsJson,
+    this.customDataJson,
     this.contents,
     this.subject,
     this.creator,
-    this.bbox,
+    this.bboxJson,
     this.note,
-    this.inkLines,
+    this.inkLinesJson,
     this.fontName,
     this.fontSize,
     this.iconName,
@@ -673,12 +700,14 @@ class AnnotationProperties {
   /// Line width for stroke-based annotations (in points)
   double? lineWidth;
 
-  /// List of annotation flags (e.g., ['readOnly', 'print'])
-  List<String>? flags;
+  /// Annotation flags as a JSON string array (e.g., '["readOnly", "print"]').
+  /// Use the `flagsSet` getter from the extension for typed access as Set<AnnotationFlag>.
+  String? flagsJson;
 
-  /// Custom data associated with the annotation
-  /// This preserves any application-specific metadata
-  Map<String, Object?>? customData;
+  /// Custom data associated with the annotation as a JSON string.
+  /// Use the `customData` getter from the extension for typed access.
+  /// This preserves any application-specific metadata.
+  String? customDataJson;
 
   /// Text content of the annotation (for text-based annotations)
   String? contents;
@@ -689,15 +718,18 @@ class AnnotationProperties {
   /// Creator/author of the annotation
   String? creator;
 
-  /// Bounding box as [x, y, width, height] in PDF coordinates
-  List<double>? bbox;
+  /// Bounding box as a JSON string array [x, y, width, height] in PDF coordinates.
+  /// Use the `boundingBox` getter from the extension for typed access as Rect.
+  String? bboxJson;
 
   /// Note text associated with the annotation
   String? note;
 
-  /// Ink lines for ink annotations as [[[x, y, pressure], ...], ...]
-  /// Each line is an array of points, each point is [x, y, pressure]
-  List<List<List<double>>>? inkLines;
+  /// Ink lines for ink annotations as a JSON string.
+  /// Use the `inkLines` getter from the extension for typed access.
+  /// Format: [[[x, y, pressure], ...], ...]
+  /// Each line is an array of points, each point is [x, y, pressure].
+  String? inkLinesJson;
 
   /// Font name for text annotations
   String? fontName;
@@ -716,14 +748,14 @@ class AnnotationProperties {
       fillColor,
       opacity,
       lineWidth,
-      flags,
-      customData,
+      flagsJson,
+      customDataJson,
       contents,
       subject,
       creator,
-      bbox,
+      bboxJson,
       note,
-      inkLines,
+      inkLinesJson,
       fontName,
       fontSize,
       iconName,
@@ -739,14 +771,14 @@ class AnnotationProperties {
       fillColor: result[3] as int?,
       opacity: result[4] as double?,
       lineWidth: result[5] as double?,
-      flags: (result[6] as List<Object?>?)?.cast<String>(),
-      customData: (result[7] as Map<Object?, Object?>?)?.cast<String, Object?>(),
+      flagsJson: result[6] as String?,
+      customDataJson: result[7] as String?,
       contents: result[8] as String?,
       subject: result[9] as String?,
       creator: result[10] as String?,
-      bbox: (result[11] as List<Object?>?)?.cast<double>(),
+      bboxJson: result[11] as String?,
       note: result[12] as String?,
-      inkLines: (result[13] as List<Object?>?)?.cast<List<List<double>>>(),
+      inkLinesJson: result[13] as String?,
       fontName: result[14] as String?,
       fontSize: result[15] as double?,
       iconName: result[16] as String?,
@@ -754,67 +786,20 @@ class AnnotationProperties {
   }
 }
 
-
-class _PigeonCodec extends StandardMessageCodec {
-  const _PigeonCodec();
-  @override
-  void writeValue(WriteBuffer buffer, Object? value) {
-    if (value is int) {
-      buffer.putUint8(4);
-      buffer.putInt64(value);
-    }    else if (value is AndroidPermissionStatus) {
-      buffer.putUint8(129);
-      writeValue(buffer, value.index);
-    }    else if (value is AnnotationType) {
-      buffer.putUint8(130);
-      writeValue(buffer, value.index);
-    }    else if (value is AnnotationTool) {
-      buffer.putUint8(131);
-      writeValue(buffer, value.index);
-    }    else if (value is AnnotationToolVariant) {
-      buffer.putUint8(132);
-      writeValue(buffer, value.index);
-    }    else if (value is AnnotationProcessingMode) {
-      buffer.putUint8(133);
-      writeValue(buffer, value.index);
-    }    else if (value is DocumentPermissions) {
-      buffer.putUint8(134);
-      writeValue(buffer, value.index);
-    }    else if (value is PdfVersion) {
-      buffer.putUint8(135);
-      writeValue(buffer, value.index);
-    }    else if (value is PdfFormFieldTypes) {
-      buffer.putUint8(136);
-      writeValue(buffer, value.index);
-    }    else if (value is NutrientEvent) {
-      buffer.putUint8(137);
-      writeValue(buffer, value.index);
-    }    else if (value is AnnotationMenuAction) {
-      buffer.putUint8(138);
-      writeValue(buffer, value.index);
-    }    else if (value is PdfRect) {
-      buffer.putUint8(139);
-      writeValue(buffer, value.encode());
-    }    else if (value is PageInfo) {
-      buffer.putUint8(140);
-      writeValue(buffer, value.encode());
-    }    else if (value is DocumentSaveOptions) {
-      buffer.putUint8(141);
-      writeValue(buffer, value.encode());
-    }    else if (value is PdfFormOption) {
-      buffer.putUint8(142);
-      writeValue(buffer, value.encode());
-    }    else if (value is FormFieldData) {
-      buffer.putUint8(143);
-      writeValue(buffer, value.encode());
-    }    else if (value is PointF) {
+    } else if (value is HeadlessDocumentOpenOptions) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
-    }    else if (value is AnnotationMenuConfigurationData) {
+    } else if (value is PointF) {
       buffer.putUint8(145);
       writeValue(buffer, value.encode());
-    }    else if (value is AnnotationProperties) {
+    } else if (value is AnnotationMenuConfigurationData) {
       buffer.putUint8(146);
+      writeValue(buffer, value.encode());
+    } else if (value is AnnotationProperties) {
+      buffer.putUint8(147);
+      writeValue(buffer, value.encode());
+    } else if (value is Bookmark) {
+      buffer.putUint8(148);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -864,12 +849,16 @@ class _PigeonCodec extends StandardMessageCodec {
         return PdfFormOption.decode(readValue(buffer)!);
       case 143: 
         return FormFieldData.decode(readValue(buffer)!);
-      case 144: 
+      case 144:
+        return HeadlessDocumentOpenOptions.decode(readValue(buffer)!);
+      case 145:
         return PointF.decode(readValue(buffer)!);
-      case 145: 
+      case 146:
         return AnnotationMenuConfigurationData.decode(readValue(buffer)!);
-      case 146: 
+      case 147:
         return AnnotationProperties.decode(readValue(buffer)!);
+      case 148:
+        return Bookmark.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -1143,9 +1132,14 @@ class NutrientApi {
     }
   }
 
-  Future<Object?> getAnnotations(int pageIndex, String type) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.NutrientApi.getAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns a JSON string containing an array of annotation objects for the given `type` on the given `pageIndex`.
+  /// The JSON string can be decoded to List<Map<String, dynamic>> on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String?> getAnnotationsJson(int pageIndex, String type) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.NutrientApi.getAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -1162,13 +1156,18 @@ class NutrientApi {
         details: pigeonVar_replyList[2],
       );
     } else {
-      return pigeonVar_replyList[0];
+      return (pigeonVar_replyList[0] as String?);
     }
   }
 
-  Future<Object?> getAllUnsavedAnnotations() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.NutrientApi.getAllUnsavedAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns a JSON string containing all unsaved annotations in the presented document.
+  /// The JSON string can be decoded to the appropriate type on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String?> getAllUnsavedAnnotationsJson() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.NutrientApi.getAllUnsavedAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -1185,7 +1184,7 @@ class NutrientApi {
         details: pigeonVar_replyList[2],
       );
     } else {
-      return pigeonVar_replyList[0];
+      return (pigeonVar_replyList[0] as String?);
     }
   }
 
@@ -2172,10 +2171,14 @@ class NutrientViewControllerApi {
     }
   }
 
-  /// Returns a list of JSON dictionaries for all the annotations of the given `type` on the given `pageIndex`.
-  Future<Object> getAnnotations(int pageIndex, String type) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.getAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns a JSON string containing an array of annotation objects for the given `type` on the given `pageIndex`.
+  /// The JSON string can be decoded to List<Map<String, dynamic>> on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String> getAnnotationsJson(int pageIndex, String type) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.getAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -2197,14 +2200,18 @@ class NutrientViewControllerApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return pigeonVar_replyList[0]!;
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
-  /// Returns a list of JSON dictionaries for all the unsaved annotations in the presented document.
-  Future<Object> getAllUnsavedAnnotations() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.getAllUnsavedAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns a JSON string containing all unsaved annotations in the presented document.
+  /// The JSON string can be decoded to the appropriate type on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String> getAllUnsavedAnnotationsJson() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.NutrientViewControllerApi.getAllUnsavedAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -2226,7 +2233,7 @@ class NutrientViewControllerApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return pigeonVar_replyList[0]!;
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
@@ -2734,9 +2741,15 @@ class PdfDocumentApi {
     }
   }
 
-  Future<Map<String, Object?>> getFormField(String fieldName) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getFormField$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns the form field with the given name as a JSON string.
+  /// The JSON string contains the form field data that can be decoded
+  /// to a Map<String, dynamic> on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types.
+  Future<String> getFormFieldJson(String fieldName) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getFormFieldJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -2758,14 +2771,19 @@ class PdfDocumentApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as Map<Object?, Object?>?)!.cast<String, Object?>();
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
-  /// Returns a list of all form fields in the document.
-  Future<List<Map<String, Object?>>> getFormFields() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getFormFields$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns a list of all form fields in the document as a JSON string.
+  /// The JSON string contains an array of form field objects that can be
+  /// decoded to List<Map<String, dynamic>> on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types.
+  Future<String> getFormFieldsJson() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getFormFieldsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -2787,7 +2805,7 @@ class PdfDocumentApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<Map<String, Object?>>();
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
@@ -2970,10 +2988,17 @@ class PdfDocumentApi {
     }
   }
 
-  /// Returns a list of JSON dictionaries for all the annotations of the given `type` on the given `pageIndex`.
-  Future<Object> getAnnotations(int pageIndex, String type) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns a JSON string containing an array of annotation objects for the given `type` on the given `pageIndex`.
+  /// The JSON string can be decoded to List<Map<String, dynamic>> on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  ///
+  /// For annotations with attachments (image, stamp, file), the response includes an `attachment` object
+  /// containing `binary` (base64-encoded) and `contentType` fields, enabling complete annotation copying.
+  Future<String> getAnnotationsJson(int pageIndex, String type) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -2995,14 +3020,18 @@ class PdfDocumentApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return pigeonVar_replyList[0]!;
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
-  /// Returns a list of JSON dictionaries for all the unsaved annotations in the presented document.
-  Future<Object> getAllUnsavedAnnotations() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getAllUnsavedAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Returns a JSON string containing all unsaved annotations in the presented document.
+  /// The JSON string can be decoded to the appropriate type on the Dart side.
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String> getAllUnsavedAnnotationsJson() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.getAllUnsavedAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -3024,7 +3053,7 @@ class PdfDocumentApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return pigeonVar_replyList[0]!;
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
@@ -3145,16 +3174,27 @@ class PdfDocumentApi {
     }
   }
 
-  /// Temporarily hides or shows all annotations in the document.
-  /// This is a visual-only operation - annotations are not removed from the document.
-  Future<void> setAnnotationsHidden(bool hidden) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.setAnnotationsHidden$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// Processes annotations of the given type with the provided processing
+  /// mode and stores the PDF at the given destination path.
+  ///
+  /// This method works for both viewer-bound and headless documents.
+  ///
+  /// @param type The type of annotations to process (e.g., all, ink, highlight)
+  /// @param processingMode The processing mode (flatten, embed, remove, print)
+  /// @param destinationPath The path where the processed PDF should be saved
+  /// @return true if processing succeeded, false otherwise
+  Future<bool> processAnnotations(AnnotationType type,
+      AnnotationProcessingMode processingMode, String destinationPath) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.processAnnotations$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[hidden]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel
+        .send(<Object?>[type, processingMode, destinationPath]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -3165,8 +3205,605 @@ class PdfDocumentApi {
         message: pigeonVar_replyList[1] as String?,
         details: pigeonVar_replyList[2],
       );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
     } else {
-      return;
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// Closes the document and releases all native resources.
+  ///
+  /// This must be called when a headless document is no longer needed
+  /// to free memory and file handles. For viewer-bound documents,
+  /// this is handled automatically by the view lifecycle.
+  ///
+  /// @return true if the document was closed successfully
+  Future<bool> closeDocument() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.closeDocument$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **iOS only.** Checks if the document has any dirty (unsaved) annotations.
+  ///
+  /// Maps directly to `document.hasDirtyAnnotations` in PSPDFKit iOS SDK.
+  /// Returns true if any annotations have been added, modified, or deleted
+  /// since the document was loaded or last saved.
+  ///
+  /// **Platform support:**
+  /// - iOS: ✅ Supported
+  /// - Android: ❌ Use `androidHasUnsavedAnnotationChanges()` instead
+  /// - Web: ❌ Use `webHasUnsavedChanges()` instead
+  ///
+  /// @return true if there are dirty annotations
+  /// @throws On Android/Web
+  Future<bool> iOSHasDirtyAnnotations() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.iOSHasDirtyAnnotations$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **iOS only.** Gets the dirty state of a specific annotation.
+  ///
+  /// Maps directly to `annotation.isDirty` property in PSPDFKit iOS SDK.
+  /// An annotation is dirty if it has been modified since the document
+  /// was loaded or last saved.
+  ///
+  /// **Platform support:**
+  /// - iOS: ✅ Supported
+  /// - Android: ❌ Not available (no annotation-level isDirty)
+  /// - Web: ❌ Not available
+  ///
+  /// @param pageIndex Zero-based page index
+  /// @param annotationId The annotation's unique identifier
+  /// @return true if the annotation is dirty
+  /// @throws On Android/Web, or if annotation not found
+  Future<bool> iOSGetAnnotationIsDirty(
+      int pageIndex, String annotationId) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.iOSGetAnnotationIsDirty$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[pageIndex, annotationId]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **iOS only.** Sets the dirty state of a specific annotation.
+  ///
+  /// Maps directly to setting `annotation.isDirty` property in PSPDFKit iOS SDK.
+  /// This can be used to manually mark an annotation as needing save,
+  /// or to clear its dirty state.
+  ///
+  /// **Platform support:**
+  /// - iOS: ✅ Supported
+  /// - Android: ❌ Not available
+  /// - Web: ❌ Not available
+  ///
+  /// @param pageIndex Zero-based page index
+  /// @param annotationId The annotation's unique identifier
+  /// @param isDirty The dirty state to set
+  /// @return true if successfully set
+  /// @throws On Android/Web, or if annotation not found
+  Future<bool> iOSSetAnnotationIsDirty(
+      int pageIndex, String annotationId, bool isDirty) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.iOSSetAnnotationIsDirty$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[pageIndex, annotationId, isDirty]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **iOS only.** Clears the needs-save flag on all annotation providers.
+  ///
+  /// Maps directly to `containerProvider.clearNeedsSaveFlag()` in PSPDFKit iOS SDK.
+  /// This resets the modification tracking without saving to disk.
+  ///
+  /// **Platform support:**
+  /// - iOS: ✅ Supported
+  /// - Android: ❌ Not available (was removed from SDK)
+  /// - Web: ❌ Not available
+  ///
+  /// @return true if successfully cleared
+  /// @throws On Android/Web
+  Future<bool> iOSClearNeedsSaveFlag() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.iOSClearNeedsSaveFlag$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **Android only.** Checks if the annotation provider has unsaved changes.
+  ///
+  /// Maps directly to `annotationProvider.hasUnsavedChanges()` in PSPDFKit Android SDK.
+  ///
+  /// **Platform support:**
+  /// - iOS: ❌ Use `iOSHasDirtyAnnotations()` instead
+  /// - Android: ✅ Supported
+  /// - Web: ❌ Use `webHasUnsavedChanges()` instead
+  ///
+  /// @return true if there are unsaved annotation changes
+  /// @throws On iOS/Web
+  Future<bool> androidHasUnsavedAnnotationChanges() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.androidHasUnsavedAnnotationChanges$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **Android only.** Checks if the form provider has unsaved changes.
+  ///
+  /// Maps directly to `formProvider.hasUnsavedChanges()` in PSPDFKit Android SDK.
+  ///
+  /// **Platform support:**
+  /// - iOS: ❌ Not available at provider level
+  /// - Android: ✅ Supported
+  /// - Web: ❌ Not available
+  ///
+  /// @return true if there are unsaved form field changes
+  /// @throws On iOS/Web
+  Future<bool> androidHasUnsavedFormChanges() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.androidHasUnsavedFormChanges$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **Android only.** Checks if the bookmark provider has unsaved changes.
+  ///
+  /// Maps directly to `bookmarkProvider.hasUnsavedChanges()` in PSPDFKit Android SDK.
+  ///
+  /// **Platform support:**
+  /// - iOS: ❌ Not available at provider level
+  /// - Android: ✅ Supported
+  /// - Web: ❌ Not available
+  ///
+  /// @return true if there are unsaved bookmark changes
+  /// @throws On iOS/Web
+  Future<bool> androidHasUnsavedBookmarkChanges() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.androidHasUnsavedBookmarkChanges$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **Android only.** Gets the dirty state of a specific bookmark.
+  ///
+  /// Maps directly to `bookmark.isDirty()` in PSPDFKit Android SDK.
+  ///
+  /// **Platform support:**
+  /// - iOS: ❌ Not available
+  /// - Android: ✅ Supported
+  /// - Web: ❌ Not available
+  ///
+  /// @param bookmarkId The bookmark's identifier (pdfBookmarkId or name)
+  /// @return true if the bookmark is dirty
+  /// @throws On iOS/Web, or if bookmark not found
+  Future<bool> androidGetBookmarkIsDirty(String bookmarkId) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.androidGetBookmarkIsDirty$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[bookmarkId]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **Android only.** Clears the dirty state of a specific bookmark.
+  ///
+  /// Maps directly to `bookmark.clearDirty()` in PSPDFKit Android SDK.
+  ///
+  /// **Platform support:**
+  /// - iOS: ❌ Not available
+  /// - Android: ✅ Supported
+  /// - Web: ❌ Not available
+  ///
+  /// @param bookmarkId The bookmark's identifier (pdfBookmarkId or name)
+  /// @return true if successfully cleared
+  /// @throws On iOS/Web, or if bookmark not found
+  Future<bool> androidClearBookmarkDirtyState(String bookmarkId) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.androidClearBookmarkDirtyState$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[bookmarkId]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **Android only.** Gets the dirty state of a form field.
+  ///
+  /// Maps directly to `formField.isDirty()` in PSPDFKit Android SDK.
+  ///
+  /// **Platform support:**
+  /// - iOS: ❌ Not available (use formField.dirty property differently)
+  /// - Android: ✅ Supported
+  /// - Web: ❌ Not available
+  ///
+  /// @param fullyQualifiedName The form field's fully qualified name
+  /// @return true if the form field is dirty
+  /// @throws On iOS/Web, or if form field not found
+  Future<bool> androidGetFormFieldIsDirty(String fullyQualifiedName) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.androidGetFormFieldIsDirty$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[fullyQualifiedName]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// **Web only.** Checks if the instance has unsaved changes.
+  ///
+  /// Maps directly to `instance.hasUnsavedChanges()` in Nutrient Web SDK.
+  /// This is a combined check that includes annotations, forms, and other changes.
+  ///
+  /// **Platform support:**
+  /// - iOS: ❌ Use `iOSHasDirtyAnnotations()` instead
+  /// - Android: ❌ Use `androidHasUnsavedAnnotationChanges()` etc. instead
+  /// - Web: ✅ Supported
+  ///
+  /// @return true if there are unsaved changes
+  /// @throws On iOS/Android
+  Future<bool> webHasUnsavedChanges() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.PdfDocumentApi.webHasUnsavedChanges$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+}
+
+/// API for opening and managing PDF documents without displaying a viewer.
+///
+/// This API enables programmatic access to PDF documents for operations like:
+/// - Reading and modifying annotations
+/// - Processing annotations (flatten, embed, remove)
+/// - Exporting/importing XFDF
+/// - Form field manipulation
+///
+/// Documents opened through this API must be explicitly closed using
+/// [PdfDocumentApi.closeDocument] when no longer needed to free resources.
+///
+/// **Usage Example**:
+/// ```dart
+/// final documentId = await HeadlessDocumentApi.openDocument('/path/to/doc.pdf');
+/// // Use PdfDocumentApi with the documentId for operations
+/// final annotations = await pdfDocumentApi.getAnnotations(0, 'all');
+/// await pdfDocumentApi.processAnnotations(
+///   AnnotationType.all,
+///   AnnotationProcessingMode.flatten,
+///   '/path/to/output.pdf',
+/// );
+/// await pdfDocumentApi.closeDocument();
+/// ```
+class HeadlessDocumentApi {
+  /// Constructor for [HeadlessDocumentApi].  The [binaryMessenger] named argument is
+  /// available for dependency injection.  If it is left null, the default
+  /// BinaryMessenger will be used which routes to the host platform.
+  HeadlessDocumentApi(
+      {BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
+      : pigeonVar_binaryMessenger = binaryMessenger,
+        pigeonVar_messageChannelSuffix =
+            messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  final BinaryMessenger? pigeonVar_binaryMessenger;
+
+  static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
+
+  final String pigeonVar_messageChannelSuffix;
+
+  /// Opens a document from the given path without displaying a viewer.
+  ///
+  /// Returns a unique document ID that can be used to interact with the
+  /// document via [PdfDocumentApi]. The document ID is used as a channel
+  /// suffix to create isolated API instances for each document.
+  ///
+  /// @param documentPath Path to the PDF document (file path or content:// URI)
+  /// @param options Optional settings like password for encrypted documents
+  /// @return Unique document ID for use with PdfDocumentApi
+  /// @throws NutrientApiError if the document cannot be opened
+  Future<String> openDocument(
+      String documentPath, HeadlessDocumentOpenOptions? options) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.HeadlessDocumentApi.openDocument$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[documentPath, options]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 }
@@ -3558,10 +4195,14 @@ class AnnotationManagerApi {
   ///
   /// @param pageIndex Zero-based page index
   /// @param annotationType Type of annotations to retrieve (e.g., "all", "ink", "note")
-  /// @return List of annotations as JSON-compatible maps
-  Future<Object> getAnnotations(int pageIndex, String annotationType) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.AnnotationManagerApi.getAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// @return JSON string containing array of annotations
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String> getAnnotationsJson(
+      int pageIndex, String annotationType) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.AnnotationManagerApi.getAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -3583,7 +4224,7 @@ class AnnotationManagerApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return pigeonVar_replyList[0]!;
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
@@ -3657,10 +4298,13 @@ class AnnotationManagerApi {
   ///
   /// @param query Search term
   /// @param pageIndex Optional page index to limit search scope
-  /// @return List of matching annotations
-  Future<Object> searchAnnotations(String query, int? pageIndex) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.AnnotationManagerApi.searchAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// @return JSON string containing array of matching annotations
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String> searchAnnotationsJson(String query, int? pageIndex) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.AnnotationManagerApi.searchAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -3682,7 +4326,7 @@ class AnnotationManagerApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return pigeonVar_replyList[0]!;
+      return (pigeonVar_replyList[0] as String?)!;
     }
   }
 
@@ -3752,10 +4396,13 @@ class AnnotationManagerApi {
 
   /// Get all annotations that have unsaved changes.
   ///
-  /// @return List of annotations with pending changes
-  Future<Object> getUnsavedAnnotations() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.nutrient_flutter.AnnotationManagerApi.getUnsavedAnnotations$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  /// @return JSON string containing array of annotations with pending changes
+  /// Using JSON string avoids Pigeon's CastList issues with nested types in release mode.
+  Future<String> getUnsavedAnnotationsJson() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.AnnotationManagerApi.getUnsavedAnnotationsJson$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -3777,7 +4424,267 @@ class AnnotationManagerApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return pigeonVar_replyList[0]!;
+      return (pigeonVar_replyList[0] as String?)!;
+    }
+  }
+}
+
+/// API for managing bookmarks in a PDF document.
+///
+/// This API provides methods to add, remove, update, and retrieve bookmarks.
+/// Bookmarks are user-created navigation markers that persist with the document.
+///
+/// Bookmarks follow the Instant JSON specification format.
+class BookmarkManagerApi {
+  /// Constructor for [BookmarkManagerApi].  The [binaryMessenger] named argument is
+  /// available for dependency injection.  If it is left null, the default
+  /// BinaryMessenger will be used which routes to the host platform.
+  BookmarkManagerApi(
+      {BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
+      : pigeonVar_binaryMessenger = binaryMessenger,
+        pigeonVar_messageChannelSuffix =
+            messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  final BinaryMessenger? pigeonVar_binaryMessenger;
+
+  static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
+
+  final String pigeonVar_messageChannelSuffix;
+
+  /// Initialize the bookmark manager for a specific document.
+  /// This should be called once when creating the manager instance.
+  ///
+  /// @param documentId The unique identifier of the document
+  Future<void> initialize(String documentId) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.BookmarkManagerApi.initialize$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[documentId]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
+  /// Get all bookmarks in the document.
+  ///
+  /// @return List of all bookmarks
+  Future<List<Bookmark>> getBookmarks() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.BookmarkManagerApi.getBookmarks$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<Bookmark>();
+    }
+  }
+
+  /// Add a new bookmark to the document.
+  ///
+  /// @param bookmark The bookmark to add
+  /// @return The created bookmark with its assigned pdfBookmarkId
+  Future<Bookmark> addBookmark(Bookmark bookmark) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.BookmarkManagerApi.addBookmark$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[bookmark]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as Bookmark?)!;
+    }
+  }
+
+  /// Remove a bookmark from the document.
+  ///
+  /// @param bookmark The bookmark to remove (identified by pdfBookmarkId or action)
+  /// @return true if successfully removed, false otherwise
+  Future<bool> removeBookmark(Bookmark bookmark) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.BookmarkManagerApi.removeBookmark$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[bookmark]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// Update an existing bookmark.
+  ///
+  /// @param bookmark The bookmark with updated values (must have a valid pdfBookmarkId)
+  /// @return true if successfully updated, false otherwise
+  Future<bool> updateBookmark(Bookmark bookmark) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.BookmarkManagerApi.updateBookmark$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[bookmark]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
+    }
+  }
+
+  /// Get bookmarks for a specific page.
+  ///
+  /// @param pageIndex Zero-based page index
+  /// @return List of bookmarks pointing to the specified page
+  Future<List<Bookmark>> getBookmarksForPage(int pageIndex) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.BookmarkManagerApi.getBookmarksForPage$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[pageIndex]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<Bookmark>();
+    }
+  }
+
+  /// Check if a bookmark exists for a specific page.
+  ///
+  /// @param pageIndex Zero-based page index
+  /// @return true if at least one bookmark exists for the page
+  Future<bool> hasBookmarkForPage(int pageIndex) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.nutrient_flutter.BookmarkManagerApi.hasBookmarkForPage$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[pageIndex]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as bool?)!;
     }
   }
 }

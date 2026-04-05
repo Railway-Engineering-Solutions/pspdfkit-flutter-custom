@@ -1,5 +1,5 @@
 ///
-///  Copyright © 2018-2025 PSPDFKit GmbH. All rights reserved.
+///  Copyright © 2018-2026 PSPDFKit GmbH. All rights reserved.
 ///
 ///  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 ///  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -10,10 +10,10 @@
 // Export the correct widget based on the platform.
 export 'src/widgets/pspdfkit_widget.dart'
     if (dart.library.io) 'src/widgets/pspdfkit_widget.dart'
-    if (dart.library.html) 'src/widgets/pspdfkit_widget_web.dart';
+    if (dart.library.js_interop) 'src/widgets/pspdfkit_widget_web.dart';
 export 'src/widgets/nutrient_view.dart'
     if (dart.library.io) 'src/widgets/nutrient_view.dart'
-    if (dart.library.html) 'src/widgets/nutrient_view_web.dart';
+    if (dart.library.js_interop) 'src/widgets/nutrient_view_web.dart';
 
 // All other exports.
 export 'src/pdf_configuration.dart';
@@ -25,6 +25,7 @@ export 'src/widgets/pspdfkit_widget_controller.dart';
 export 'src/measurements/measurements.dart';
 export 'src/processor/processor.dart';
 export 'src/document/pdf_document.dart';
+export 'src/document/headless_pdf_document_native.dart';
 // Deprecated: AnnotationManager is no longer exposed as a user-facing API.
 // Use annotation management methods directly on PdfDocument instead.
 export 'src/document/annotation_manager.dart';
@@ -35,10 +36,13 @@ export 'src/api/nutrient_api.g.dart';
 export 'src/annotation_preset_configurations.dart';
 export 'src/annotations/annotations.dart';
 export 'src/annotations/annotation_menu_configuration.dart';
+export 'src/bookmarks/bookmarks.dart';
+export 'src/web/models/nutrient_web_events.dart';
 export 'src/nutrient.dart';
 
 export 'src/widgets/nutrient_view_controller.dart';
 export 'src/ai/ai_assistant_configuration.dart';
+export 'src/theme_configuration.dart';
 export 'src/utils/missing_platform_directory_exception.dart';
 
 // Web-specific exports (only available on web)
@@ -50,3 +54,16 @@ export 'src/web/models/models.dart'
     if (dart.library.html) 'src/web/models/models.dart';
 export 'src/web/models/nutrient_web_events.dart'
     if (dart.library.html) 'src/web/models/nutrient_web_events.dart';
+
+// Adapter infrastructure for native SDK access
+export 'package:nutrient_flutter_platform_interface/nutrient_flutter_platform_interface.dart'
+    show
+        NutrientController,
+        NutrientViewHandle,
+        NativeInstanceRegistry,
+        NutrientPlatformAdapter;
+
+// Platform adapters - conditional exports per platform
+export 'src/adapters/adapters_stub.dart'
+    if (dart.library.io) 'src/adapters/adapters_native.dart'
+    if (dart.library.js_interop) 'src/adapters/adapters_web.dart';

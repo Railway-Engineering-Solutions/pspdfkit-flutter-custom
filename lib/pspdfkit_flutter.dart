@@ -1,5 +1,5 @@
 ///
-///  Copyright © 2018-2025 PSPDFKit GmbH. All rights reserved.
+///  Copyright © 2018-2026 PSPDFKit GmbH. All rights reserved.
 ///
 ///  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 ///  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -22,7 +22,7 @@ export 'src/configuration_options.dart';
 export 'src/toolbar/toolbar.dart';
 export 'src/widgets/pspdfkit_widget.dart'
     if (dart.library.io) 'src/widgets/pspdfkit_widget.dart'
-    if (dart.library.html) 'src/widgets/pspdfkit_widget_web.dart';
+    if (dart.library.js_interop) 'src/widgets/pspdfkit_widget_web.dart';
 export 'src/widgets/pspdfkit_widget_controller.dart';
 export 'src/measurements/measurements.dart';
 export 'src/processor/processor.dart';

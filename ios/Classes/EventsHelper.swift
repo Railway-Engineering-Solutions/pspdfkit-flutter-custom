@@ -1,5 +1,5 @@
 //
-//  Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+//  Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 //
 //  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 //  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -34,10 +34,7 @@ class FlutterEventsHelper: NSObject {
 
     func setEventListener(event: NutrientEvent) {
         // Prevent setting listeners if already cleaned up
-        guard !isCleanedUp else {
-            NSLog("FlutterEventsHelper: Attempted to set event listener after cleanup for event: \(event)")
-            return
-        }
+        guard !isCleanedUp else { return }
         
         // Remove existing listener for this event to prevent duplicates
         removeEventListener(event: event)
@@ -249,10 +246,7 @@ class FlutterEventsHelper: NSObject {
 
     func removeEventListener(event: NutrientEvent) {
         // Defensive guard to prevent operations after cleanup
-        guard !isCleanedUp else {
-            NSLog("FlutterEventsHelper: Attempted to remove event listener after cleanup for event: \(event)")
-            return
-        }
+        guard !isCleanedUp else { return }
         
         // Remove stored observer (for events that use block-based observers)
         if let observer = observers[event] {
@@ -302,13 +296,8 @@ class FlutterEventsHelper: NSObject {
     /// This method is idempotent and safe to call multiple times
     func cleanupAllListeners() {
         // Prevent multiple cleanup calls
-        guard !isCleanedUp else {
-            NSLog("FlutterEventsHelper: Cleanup already performed, skipping")
-            return
-        }
-        
-        NSLog("FlutterEventsHelper: Starting comprehensive cleanup of all listeners")
-        
+        guard !isCleanedUp else { return }
+
         // Mark as cleaned up early to prevent race conditions
         isCleanedUp = true
         
@@ -348,27 +337,22 @@ class FlutterEventsHelper: NSObject {
         
         // Clear callback reference to prevent retain cycles
         nutrientCallback = nil
-        
-        NSLog("FlutterEventsHelper: Comprehensive cleanup completed successfully")
     }
     
     /// Deinitializer performs final defensive cleanup
     deinit {
         if !isCleanedUp {
-            NSLog("FlutterEventsHelper: deinit called without explicit cleanup, performing defensive cleanup")
-            // Don't call cleanupAllListeners here as it might cause issues during deallocation
-            // Instead, perform minimal cleanup
+            // Perform minimal cleanup during deallocation
             observers.removeAll()
             selectorObserverEvents.removeAll()
             externalListeners.removeAll()
-            
+
             // Remove all observers for this instance as a final safety measure
             NotificationCenter.default.removeObserver(self)
-            
+
             nutrientCallback = nil
             isCleanedUp = true
         }
-        NSLog("FlutterEventsHelper: deinit completed")
     }
 
 }

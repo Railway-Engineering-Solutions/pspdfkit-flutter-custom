@@ -1,5 +1,5 @@
 ///
-///  Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+///  Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 ///
 ///  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 ///  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -124,7 +124,7 @@ class _AnnotationCreationModeExampleWidgetState
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            onPressed: () => _enterAnnotationCreationMode(tool),
+            onPressed: () => _toggleAnnotationCreationMode(tool),
             icon: Icon(icon),
             color: isSelected ? Colors.blue : Colors.black87,
             tooltip: label,
@@ -142,30 +142,37 @@ class _AnnotationCreationModeExampleWidgetState
     );
   }
 
-  Future<void> _enterAnnotationCreationMode(AnnotationTool tool) async {
-    if (_controller != null) {
-      try {
-        final result = await _controller!.enterAnnotationCreationMode(tool);
-        if (result == true) {
-          setState(() {
-            _currentTool = tool;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Entered annotation mode: ${tool.toString().split('.').last}'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        }
-      } catch (e) {
+  Future<void> _toggleAnnotationCreationMode(AnnotationTool tool) async {
+    if (_controller == null) return;
+
+    // If the same tool is already selected, exit annotation mode
+    if (_currentTool == tool) {
+      await _exitAnnotationCreationMode();
+      return;
+    }
+
+    // Otherwise, enter the new annotation mode
+    try {
+      final result = await _controller!.enterAnnotationCreationMode(tool);
+      if (result == true) {
+        setState(() {
+          _currentTool = tool;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error entering annotation mode: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+                'Entered annotation mode: ${tool.toString().split('.').last}'),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error entering annotation mode: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

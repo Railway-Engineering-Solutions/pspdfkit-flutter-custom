@@ -33,11 +33,14 @@ import 'package:nutrient_example/instant_collaboration_example.dart';
 import 'package:nutrient_example/measurement_tools.dart';
 import 'package:nutrient_example/pdf_generation_example.dart';
 import 'package:nutrient_example/save_as_example.dart';
-import 'package:nutrient_example/nutrient_annotation_flags.dart';
 import 'package:nutrient_example/office_to_pdf_example.dart';
 
 import 'basic_example.dart';
+import 'bookmarks_example.dart';
+import 'theme_example.dart';
 import 'form_example.dart';
+import 'headless_document_example.dart';
+import 'copy_annotations_example.dart';
 import 'instantjson_example.dart';
 import 'annotations_example.dart';
 import 'manual_save_example.dart';
@@ -45,6 +48,11 @@ import 'annotation_processing_example.dart';
 import 'password_example.dart';
 import 'nutrient_annotation_creation_mode_example.dart';
 import 'nutrient_annotation_properties_example.dart';
+import 'custom_data_example.dart';
+import 'dirty_state_example.dart';
+
+// Platform Adapter examples
+import 'platform_adapters/platform_adapter_example.dart';
 
 const String _documentPath = 'PDFs/PSPDFKit.pdf';
 const String _measurementsDocs = 'PDFs/Measurements.pdf';
@@ -87,9 +95,26 @@ List<NutrientExampleItem> examples(BuildContext context) => [
                 goTo(DocumentExample(documentPath: value.path), context));
           }),
       NutrientExampleItem(
+          title: 'Bookmarks Example',
+          description:
+              'Programmatically add, remove, update, and navigate bookmarks.',
+          onTap: () async {
+            await extractAsset(context, _documentPath).then((value) =>
+                goTo(BookmarksExample(documentPath: value.path), context));
+          }),
+      NutrientExampleItem(
         title: 'Dark Theme',
         description: 'Opens a document in night mode with a custom dark theme.',
         onTap: () => applyDarkTheme(context),
+      ),
+      NutrientExampleItem(
+        title: 'Custom Theme',
+        description:
+            'Opens a document with a custom ThemeConfiguration controlling toolbar, icons, background, and more.',
+        onTap: () async {
+          await extractAsset(context, _documentPath).then(
+              (value) => goTo(ThemeExample(documentPath: value.path), context));
+        },
       ),
       NutrientExampleItem(
         title: 'Custom configuration options',
@@ -114,17 +139,20 @@ List<NutrientExampleItem> examples(BuildContext context) => [
         onTap: () => annotationsExample(context),
       ),
       NutrientExampleItem(
-        title: 'Annotation Flags Example',
-        description: 'Shows how to click an annotation and modify its flags.',
-        onTap: () => annotationFlagsExample(context),
-      ),
-      NutrientExampleItem(
         title: 'Annotation Properties API',
         description: 'Safe annotation property updates preserving attachments.',
         onTap: () async {
           await extractAsset(context, _documentPath).then((value) => goTo(
               NutrientAnnotationPropertiesExample(documentPath: value.path),
               context));
+        },
+      ),
+      NutrientExampleItem(
+        title: 'Custom Data Example',
+        description: 'Test nested custom data on annotations.',
+        onTap: () async {
+          await extractAsset(context, _documentPath).then((value) =>
+              goTo(CustomDataExample(documentPath: value.path), context));
         },
       ),
       if (!kIsWeb)
@@ -140,6 +168,12 @@ List<NutrientExampleItem> examples(BuildContext context) => [
             'Add a save button at the bottom and disable automatic saving.',
         onTap: () => manualSaveExample(context),
       ),
+      NutrientExampleItem(
+        title: 'Dirty State Tracking',
+        description:
+            'Track unsaved changes and prompt before closing with unsaved edits.',
+        onTap: () => dirtyStateExample(context),
+      ),
       if (PlatformUtils.isCupertino(context))
         NutrientExampleItem(
           title: 'Save As',
@@ -153,6 +187,20 @@ List<NutrientExampleItem> examples(BuildContext context) => [
           description:
               'Programmatically adds and removes annotations using a custom Widget.',
           onTap: () => annotationProcessingExample(context),
+        ),
+      if (!kIsWeb)
+        NutrientExampleItem(
+          title: 'Headless Document API',
+          description:
+              'Open documents without a viewer to read document properties.',
+          onTap: () => headlessDocumentExample(context),
+        ),
+      if (!kIsWeb)
+        NutrientExampleItem(
+          title: 'Copy Annotations',
+          description:
+              'Copy annotations (including images) between documents using the annotation APIs.',
+          onTap: () => copyAnnotationsExample(context),
         ),
       NutrientExampleItem(
         title: 'Annotation Menu - Remove & Disable',
@@ -259,7 +307,23 @@ List<NutrientExampleItem> examples(BuildContext context) => [
           description:
               'Convert Excel, Word, and PowerPoint documents to PDF format.',
           onTap: () => goTo(const OfficeToPdfExample(), context),
-        )
+        ),
+    ];
+
+/// Platform Adapter Examples - Native SDK access via JNI (Android), FFI (iOS), and JS interop (Web).
+///
+/// These examples demonstrate how to use platform adapters to access native SDK
+/// functionality directly, enabling advanced customization and event handling.
+List<NutrientExampleItem> platformAdapterExamples(BuildContext context) => [
+      NutrientExampleItem(
+        title: 'Comprehensive Platform Adapter',
+        description:
+            'Complete adapter implementation combining configuration, event listeners, and UI customization using native SDK APIs.',
+        onTap: () async {
+          await extractAsset(context, _documentPath).then((value) =>
+              goTo(PlatformAdapterExample(documentPath: value.path), context));
+        },
+      ),
     ];
 
 List<NutrientExampleItem> globalExamples(BuildContext context) => [
@@ -375,8 +439,13 @@ void unlockPasswordProtectedDocument(context) async {
 void showFormDocumentExample(context) async {
   final extractedFormDocument = await extractAsset(context, _formPath);
   await Navigator.of(context).push<dynamic>(MaterialPageRoute<dynamic>(
-      builder: (_) =>
-          FormExampleWidget(documentPath: extractedFormDocument.path)));
+      builder: (_) => FormExampleWidget(
+            documentPath: extractedFormDocument.path,
+            // Test: disable form editing - form fields should NOT be editable
+            configuration: PdfConfiguration(
+              enableFormEditing: false,
+            ),
+          )));
 }
 
 void importInstantJsonExample(context) async {
@@ -411,6 +480,15 @@ void manualSaveExample(context) async {
       builder: (_) => ManualSaveExampleWidget(
           documentPath: extractedWritableDocument.path,
           configuration: PdfConfiguration(disableAutosave: true))));
+}
+
+void dirtyStateExample(context) async {
+  final extractedWritableDocument = await extractAsset(context, _documentPath,
+      shouldOverwrite: false, prefix: 'dirty_state');
+
+  await Navigator.of(context).push<dynamic>(MaterialPageRoute<dynamic>(
+      builder: (_) =>
+          DirtyStateExample(documentPath: extractedWritableDocument.path)));
 }
 
 void saveAsExample(context) async {
@@ -636,9 +714,26 @@ void goTo(Widget widget, BuildContext context) {
       context, MaterialPageRoute<dynamic>(builder: (context) => widget));
 }
 
-void annotationFlagsExample(BuildContext context) {
+void headlessDocumentExample(BuildContext context) async {
+  final extractedDocument = await extractAsset(context, _documentPath);
   goTo(
-    const AnnotationFlagsExample(),
+    HeadlessDocumentExample(
+      documentPath: extractedDocument.path,
+    ),
+    context,
+  );
+}
+
+void copyAnnotationsExample(BuildContext context) async {
+  final sourceDocument = await extractAsset(context, _documentPath);
+  // Create a copy of the source document as the target
+  final targetDocument =
+      await extractAsset(context, _documentPath, prefix: 'target_');
+  goTo(
+    CopyAnnotationsExample(
+      sourceDocumentPath: sourceDocument.path,
+      targetDocumentPath: targetDocument.path,
+    ),
     context,
   );
 }

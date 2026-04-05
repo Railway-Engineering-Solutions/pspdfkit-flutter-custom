@@ -1,5 +1,5 @@
 //
-//  Copyright © 2018-2025 PSPDFKit GmbH. All rights reserved.
+//  Copyright © 2018-2026 PSPDFKit GmbH. All rights reserved.
 //
 //  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 //  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -274,7 +274,6 @@
         // Create the folder where the writable file will be saved.
         NSError *createFolderError;
         if (![fileManager createDirectoryAtPath:writableFileURL.path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:&createFolderError]) {
-            NSLog(@"Failed to create directory: %@", createFolderError.localizedDescription);
             return nil;
         }
 
@@ -283,7 +282,6 @@
         NSError *copyError;
         if (copyIfNeeded && [fileManager fileExistsAtPath:(NSString *)fileURL.path]) {
             if (![fileManager copyItemAtURL:fileURL toURL:writableFileURL error:&copyError]) {
-                NSLog(@"Failed to copy item at URL '%@' with error: %@", path, copyError.localizedDescription);
                 return nil;
             }
         }
@@ -526,35 +524,67 @@
         return [FlutterError errorWithCode:@"" message:@"PDF document not found or is invalid." details:nil];
     }
 
-    NSString *annotationUUID;
+    NSDictionary *jsonDict = nil;
     if ([jsonAnnotation isKindOfClass:NSString.class]) {
         NSData *jsonData = [jsonAnnotation dataUsingEncoding:NSUTF8StringEncoding];
-        NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:NSJSONReadingAllowFragments error:nil];
-        if (jsonDict) { 
-            // Web platform uses "id" field, iOS/Android use "uuid" field - support both
-            annotationUUID = jsonDict[@"uuid"] ?: jsonDict[@"id"]; 
-        }
+        jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:NSJSONReadingAllowFragments error:nil];
     } else if ([jsonAnnotation isKindOfClass:NSDictionary.class])  {
-        if (jsonAnnotation) { 
-            // Web platform uses "id" field, iOS/Android use "uuid" field - support both
-            annotationUUID = jsonAnnotation[@"uuid"] ?: jsonAnnotation[@"id"]; 
-        }
+        jsonDict = jsonAnnotation;
     }
 
-    if (annotationUUID.length <= 0) {
-        return [FlutterError errorWithCode:@"" message:@"Invalid annotation UUID (requires uuid or id field)." details:nil];
+    // Get identifiers - name is user-defined, id is Instant JSON identifier
+    NSString *name = jsonDict[@"name"];
+    NSString *instantId = jsonDict[@"id"];
+
+    if (name.length <= 0 && instantId.length <= 0) {
+        return [FlutterError errorWithCode:@"" message:@"Annotation has no identifier (name or id)." details:nil];
     }
 
-    BOOL success = NO;
     NSArray<PSPDFAnnotation *> *allAnnotations = [[document allAnnotationsOfType:PSPDFAnnotationTypeAll].allValues valueForKeyPath:@"@unionOfArrays.self"];
-    for (PSPDFAnnotation *annotation in allAnnotations) {
-        // Remove the annotation if the uuids match.
-        if ([annotation.uuid isEqualToString:annotationUUID]) {
-            success = [document removeAnnotations:@[annotation] options:nil];
-            break;
+
+    PSPDFAnnotation *foundAnnotation = nil;
+
+    // Strategy 1: Try to find by name
+    if (name.length > 0) {
+        for (PSPDFAnnotation *annotation in allAnnotations) {
+            if ([annotation.name isEqualToString:name]) {
+                foundAnnotation = annotation;
+                break;
+            }
         }
     }
 
+    // Strategy 2: Try to find by uuid
+    if (!foundAnnotation && instantId.length > 0) {
+        for (PSPDFAnnotation *annotation in allAnnotations) {
+            if ([annotation.uuid isEqualToString:instantId]) {
+                foundAnnotation = annotation;
+                break;
+            }
+        }
+
+        // Strategy 3: Try to find by Instant JSON id
+        if (!foundAnnotation) {
+            for (PSPDFAnnotation *annotation in allAnnotations) {
+                NSError *error = nil;
+                NSData *annJsonData = [annotation generateInstantJSONWithError:&error];
+                if (annJsonData && !error) {
+                    NSDictionary *annJson = [NSJSONSerialization JSONObjectWithData:annJsonData options:0 error:nil];
+                    NSString *annId = annJson[@"id"];
+                    if ([annId isEqualToString:instantId]) {
+                        foundAnnotation = annotation;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (!foundAnnotation) {
+        return @(NO);
+    }
+
+    BOOL success = [document removeAnnotations:@[foundAnnotation] options:nil];
     return @(success);
 }
 

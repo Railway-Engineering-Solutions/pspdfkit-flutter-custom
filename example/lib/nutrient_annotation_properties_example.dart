@@ -1,9 +1,11 @@
-///  Copyright © 2025 PSPDFKit GmbH. All rights reserved.
+///  Copyright © 2025-2026 PSPDFKit GmbH. All rights reserved.
 ///
 ///  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 ///  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
 ///  UNAUTHORIZED REPRODUCTION OR DISTRIBUTION IS SUBJECT TO CIVIL AND CRIMINAL PENALTIES.
 ///  This notice may not be removed from this file.
+
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
@@ -225,6 +227,7 @@ class _NutrientAnnotationPropertiesExampleState
                   });
                   _addCustomData();
                 },
+                onViewCustomData: _showCustomDataPreview,
               ),
             ),
           ),
@@ -376,20 +379,39 @@ class _NutrientAnnotationPropertiesExampleState
   /// Handles annotation selection from events
   Future<void> _handleAnnotationSelection(dynamic annotationData) async {
     final document = _document;
-    if (document == null) return;
+    if (document == null) {
+      debugPrint(
+          '[AnnotationPropertiesExample] _handleAnnotationSelection: document is null');
+      return;
+    }
+
+    debugPrint(
+        '[AnnotationPropertiesExample] _handleAnnotationSelection called');
+    debugPrint(
+        '[AnnotationPropertiesExample] annotationData type: ${annotationData.runtimeType}');
 
     try {
       // If annotationData is already an Annotation object, use it directly
       if (annotationData is Annotation) {
+        debugPrint(
+            '[AnnotationPropertiesExample] annotationData is Annotation');
         final annotationId = annotationData.id ?? annotationData.name ?? '';
+        debugPrint(
+            '[AnnotationPropertiesExample] annotationId: $annotationId, pageIndex: ${annotationData.pageIndex}');
 
         if (annotationId.isNotEmpty) {
+          debugPrint(
+              '[AnnotationPropertiesExample] Calling getAnnotationProperties...');
           final properties = await document.getAnnotationProperties(
             annotationData.pageIndex,
             annotationId,
           );
+          debugPrint(
+              '[AnnotationPropertiesExample] getAnnotationProperties returned: ${properties != null ? "non-null" : "null"}');
 
           if (properties != null) {
+            debugPrint(
+                '[AnnotationPropertiesExample] Properties: strokeColor=${properties.strokeColor}, opacity=${properties.opacity}, lineWidth=${properties.lineWidth}');
             setState(() {
               _selectedAnnotation = annotationData;
               _selectedProperties = properties;
@@ -403,8 +425,13 @@ class _NutrientAnnotationPropertiesExampleState
       // If it's a Map, extract page index and ID, then fetch full annotation
       final Map<String, dynamic> annotationMap;
       if (annotationData is Map) {
+        debugPrint('[AnnotationPropertiesExample] annotationData is Map');
         annotationMap = Map<String, dynamic>.from(annotationData);
+        debugPrint(
+            '[AnnotationPropertiesExample] annotationMap keys: ${annotationMap.keys.toList()}');
       } else {
+        debugPrint(
+            '[AnnotationPropertiesExample] annotationData is unknown type: ${annotationData.runtimeType}, trying Annotation.fromJson');
         // Try to parse as Annotation
         final annotation = Annotation.fromJson(annotationData);
         final annotationId = annotation.id ?? annotation.name ?? '';
@@ -430,11 +457,17 @@ class _NutrientAnnotationPropertiesExampleState
       final int? pageIndex = annotationMap['pageIndex'] as int?;
       final String? annotationId =
           (annotationMap['id'] ?? annotationMap['name']) as String?;
+      debugPrint(
+          '[AnnotationPropertiesExample] From map: pageIndex=$pageIndex, annotationId=$annotationId');
 
       if (pageIndex != null && annotationId != null) {
         // Get all annotations on the page to find the selected one
+        debugPrint(
+            '[AnnotationPropertiesExample] Fetching annotations for page $pageIndex...');
         final annotations =
             await document.getAnnotations(pageIndex, AnnotationType.all);
+        debugPrint(
+            '[AnnotationPropertiesExample] Got ${annotations.length} annotations');
 
         // Find the annotation with matching ID
         Annotation? matchingAnnotation;
@@ -446,14 +479,23 @@ class _NutrientAnnotationPropertiesExampleState
           }
         }
 
+        debugPrint(
+            '[AnnotationPropertiesExample] matchingAnnotation: ${matchingAnnotation != null ? "found" : "not found"}');
+
         if (matchingAnnotation != null) {
           // Get properties
+          debugPrint(
+              '[AnnotationPropertiesExample] Calling getAnnotationProperties...');
           final properties = await document.getAnnotationProperties(
             pageIndex,
             annotationId,
           );
+          debugPrint(
+              '[AnnotationPropertiesExample] getAnnotationProperties returned: ${properties != null ? "non-null" : "null"}');
 
           if (properties != null) {
+            debugPrint(
+                '[AnnotationPropertiesExample] Properties: strokeColor=${properties.strokeColor}, opacity=${properties.opacity}, lineWidth=${properties.lineWidth}');
             setState(() {
               _selectedAnnotation = matchingAnnotation;
               _selectedProperties = properties;
@@ -462,7 +504,10 @@ class _NutrientAnnotationPropertiesExampleState
           }
         }
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint(
+          '[AnnotationPropertiesExample] _handleAnnotationSelection error: $e');
+      debugPrint('[AnnotationPropertiesExample] Stack trace: $st');
       _showError('Failed to select annotation: $e');
     }
   }
@@ -476,13 +521,26 @@ class _NutrientAnnotationPropertiesExampleState
     _controller?.addEventListener(NutrientEvent.annotationsSelected,
         (event) async {
       try {
+        debugPrint(
+            '[AnnotationPropertiesExample] annotationsSelected event received');
+        debugPrint(
+            '[AnnotationPropertiesExample] event type: ${event.runtimeType}');
+        debugPrint('[AnnotationPropertiesExample] event: $event');
+
         // Get the selected annotation from the event
         // The event contains an 'annotation' field with the annotation object
         final dynamic annotationData = event?['annotation'];
+        debugPrint(
+            '[AnnotationPropertiesExample] annotationData type: ${annotationData.runtimeType}');
+        debugPrint(
+            '[AnnotationPropertiesExample] annotationData: $annotationData');
 
         if (annotationData == null) {
+          debugPrint(
+              '[AnnotationPropertiesExample] annotationData is null, checking annotations (plural)');
           // Sometimes the event might have 'annotations' (plural) instead
           final annotations = event?['annotations'] as List?;
+          debugPrint('[AnnotationPropertiesExample] annotations: $annotations');
           if (annotations != null && annotations.isNotEmpty) {
             await _handleAnnotationSelection(annotations.first);
           }
@@ -490,7 +548,10 @@ class _NutrientAnnotationPropertiesExampleState
         }
 
         await _handleAnnotationSelection(annotationData);
-      } catch (e) {
+      } catch (e, st) {
+        debugPrint(
+            '[AnnotationPropertiesExample] Error in annotationsSelected: $e');
+        debugPrint('[AnnotationPropertiesExample] Stack trace: $st');
         _showError('Failed to handle annotation selection: $e');
       }
     });
@@ -510,6 +571,73 @@ class _NutrientAnnotationPropertiesExampleState
     });
 
     _showMessage('Tap any annotation to edit its properties');
+  }
+
+  /// Shows a dialog with the full custom data in a formatted JSON view
+  void _showCustomDataPreview() {
+    final customData = _selectedProperties?.customData;
+    if (customData == null || customData.isEmpty) {
+      _showMessage('No custom data to display');
+      return;
+    }
+
+    // Format the JSON with indentation for readability
+    const encoder = JsonEncoder.withIndent('  ');
+    final formattedJson = encoder.convert(customData);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.data_object, color: Colors.blue[700]),
+            const SizedBox(width: 8),
+            const Text('Custom Data'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: SelectableText(
+                    formattedJson,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${customData.length} top-level entries',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<Map<String, String>?> _showCustomDataDialog() async {

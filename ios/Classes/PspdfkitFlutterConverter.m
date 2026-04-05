@@ -1,5 +1,5 @@
 //
-//  Copyright © 2018-2025 PSPDFKit GmbH. All rights reserved.
+//  Copyright © 2018-2026 PSPDFKit GmbH. All rights reserved.
 //
 //  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 //  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -144,6 +144,37 @@
             builder.editableAnnotationTypes = [dictionary[key] boolValue] ? editableAnnotations : nil;
         }
 
+        key = @"enableFormEditing";
+        if (dictionary[key]) {
+            NSNumber *annotationEditingValue = dictionary[@"enableAnnotationEditing"];
+            BOOL annotationEditingExplicitlyDisabled = annotationEditingValue && ![annotationEditingValue boolValue];
+            BOOL enableFormEditing = [dictionary[key] boolValue];
+
+            if (enableFormEditing) {
+                // Enable form editing - add Widget type if not already present
+                if (annotationEditingExplicitlyDisabled) {
+                    // Annotation editing is disabled, but form editing should be enabled
+                    // Set editableAnnotationTypes to only include Widget
+                    builder.editableAnnotationTypes = [NSSet setWithObject:PSPDFAnnotationStringWidget];
+                }
+                // If annotation editing is enabled (or not set), forms are already editable by default
+            } else {
+                // Disable form editing - remove Widget type from editableAnnotationTypes
+                if (!annotationEditingExplicitlyDisabled) {
+                    NSMutableSet *currentTypes;
+                    if (builder.editableAnnotationTypes) {
+                        currentTypes = [builder.editableAnnotationTypes mutableCopy];
+                    } else {
+                        // Use the same default set as enableAnnotationEditing
+                        currentTypes = [NSMutableSet setWithArray:@[PSPDFAnnotationStringLink, PSPDFAnnotationStringHighlight, PSPDFAnnotationStringStrikeOut, PSPDFAnnotationStringUnderline, PSPDFAnnotationStringSquiggly, PSPDFAnnotationStringNote, PSPDFAnnotationStringFreeText, PSPDFAnnotationStringInk, PSPDFAnnotationStringSquare, PSPDFAnnotationStringCircle, PSPDFAnnotationStringLine, PSPDFAnnotationStringPolygon, PSPDFAnnotationStringPolyLine, PSPDFAnnotationStringSignature, PSPDFAnnotationStringStamp, PSPDFAnnotationStringEraser, PSPDFAnnotationStringSound, PSPDFAnnotationStringImage, PSPDFAnnotationStringRedaction, PSPDFAnnotationStringWidget, PSPDFAnnotationStringFile, PSPDFAnnotationStringRichMedia, PSPDFAnnotationStringScreen, PSPDFAnnotationStringCaret, PSPDFAnnotationStringPopup, PSPDFAnnotationStringWatermark, PSPDFAnnotationStringTrapNet, PSPDFAnnotationString3D]];
+                    }
+                    [currentTypes removeObject:PSPDFAnnotationStringWidget];
+                    builder.editableAnnotationTypes = currentTypes.count > 0 ? currentTypes : nil;
+                }
+                // If annotation editing is explicitly disabled, forms are already disabled (nil = nothing editable)
+            }
+        }
+
         // Deprecated Options
 
         key = @"pageScrollDirection";
@@ -215,6 +246,16 @@
         key = @"aiAssistant";
         if (dictionary[key]) {
             [AiAssistantHelper configureAiAssistant:builder withOptions:dictionary[key]];
+        }
+
+        key = @"bookmarkIndicatorMode";
+        if (dictionary[key]) {
+            builder.bookmarkIndicatorMode = [PspdfkitFlutterConverter bookmarkIndicatorMode:dictionary forKey:key];
+        }
+
+        key = @"bookmarkIndicatorInteractionEnabled";
+        if (dictionary[key]) {
+            builder.bookmarkIndicatorInteractionEnabled = [dictionary[key] boolValue];
         }
     }];
 }
@@ -350,9 +391,8 @@
             finalOptions |= PSPDFSettingsOptionSpreadFitting;
         } else if ([option isEqualToString:@"androidTheme"] || [option isEqualToString:@"androidPageLayout"] || [option isEqualToString:@"androidScreenAwake"]) {
             // NO OP. Only supported on Android
-        } else {
-            NSLog(@"WARNING: '%@' is an invalid settings option. It will be ignored.", option);
         }
+        // Unknown options are silently ignored
     }
 
     // If no options were passed, we use the default setting options.
@@ -443,6 +483,12 @@
         if (annotationData) {
             NSMutableDictionary *annotationDictionary = [[NSJSONSerialization JSONObjectWithData:annotationData options:kNilOptions error:NULL] mutableCopy];
             [annotationDictionary addEntriesFromDictionary:uuidDict];
+
+            // For annotations with binary attachments, include the attachment data
+            if ([annotation hasBinaryInstantJSONAttachment]) {
+                [self addAttachmentToAnnotationDictionary:annotationDictionary forAnnotation:annotation];
+            }
+
             if (annotationDictionary) {
                 [annotationsJSON addObject:annotationDictionary];
             }
@@ -452,6 +498,38 @@
         }
     }
     return [annotationsJSON copy];
+}
+
+// Adds binary attachment data to an annotation dictionary.
+// This enables copying annotations with attachments (images, stamps, files) between documents.
++ (void)addAttachmentToAnnotationDictionary:(NSMutableDictionary *)annotationDictionary forAnnotation:(PSPDFAnnotation *)annotation {
+    @try {
+        PSPDFDataContainerSink *dataSink = [[PSPDFDataContainerSink alloc] initWithData:nil];
+        NSError *error = nil;
+        NSString *contentType = [annotation writeBinaryInstantJSONAttachmentToDataSink:dataSink error:&error];
+
+        if (contentType && dataSink.data.length > 0 && !error) {
+            NSString *base64Data = [dataSink.data base64EncodedStringWithOptions:0];
+
+            // Get the attachment ID from the annotation JSON
+            NSString *attachmentId = annotationDictionary[@"imageAttachmentId"];
+            if (!attachmentId) attachmentId = annotationDictionary[@"stampAttachmentId"];
+            if (!attachmentId) attachmentId = annotationDictionary[@"fileAttachmentId"];
+            if (!attachmentId) {
+                attachmentId = [NSString stringWithFormat:@"attachment-%@", annotation.uuid ?: [[NSUUID UUID] UUIDString]];
+            }
+
+            NSDictionary *attachmentObject = @{
+                @"id": attachmentId,
+                @"binary": base64Data,
+                @"contentType": contentType
+            };
+
+            annotationDictionary[@"attachment"] = attachmentObject;
+        }
+    } @catch (NSException *exception) {
+        // Silently ignore attachment fetch failures
+    }
 }
 
 + (PSPDFSignatureSavingStrategy)signatureSavingStrategy:(NSString *)strategy {
@@ -464,6 +542,39 @@
     } else {
         return PSPDFSignatureSavingStrategyNeverSave;
     }
-} 
+}
+
++ (PSPDFPageBookmarkIndicatorMode)bookmarkIndicatorMode:(NSDictionary *)dictionary forKey:(NSString *)key {
+    PSPDFPageBookmarkIndicatorMode bookmarkIndicatorMode = PSPDFPageBookmarkIndicatorModeOff;
+    NSString *value = dictionary[key];
+    if (value) {
+        if ([value isEqualToString:@"off"]) {
+            bookmarkIndicatorMode = PSPDFPageBookmarkIndicatorModeOff;
+        } else if ([value isEqualToString:@"alwaysOn"]) {
+            bookmarkIndicatorMode = PSPDFPageBookmarkIndicatorModeAlwaysOn;
+        } else if ([value isEqualToString:@"onWhenBookmarked"]) {
+            bookmarkIndicatorMode = PSPDFPageBookmarkIndicatorModeOnWhenBookmarked;
+        }
+    }
+    return bookmarkIndicatorMode;
+}
+
++ (NSNumber * _Nullable)fileConflictResolution:(NSString * _Nullable)resolution {
+    if (!resolution || [resolution isKindOfClass:[NSNull class]]) {
+        return nil; // Default behavior - show alert to user
+    }
+
+    if ([resolution isEqualToString:@"close"]) {
+        return @(PSPDFFileConflictResolutionClose);
+    } else if ([resolution isEqualToString:@"save"]) {
+        return @(PSPDFFileConflictResolutionSave);
+    } else if ([resolution isEqualToString:@"reload"]) {
+        return @(PSPDFFileConflictResolutionReload);
+    } else if ([resolution isEqualToString:@"defaultBehavior"]) {
+        return nil; // Default behavior - show alert to user
+    }
+
+    return nil; // Unknown value, use default behavior
+}
 
 @end

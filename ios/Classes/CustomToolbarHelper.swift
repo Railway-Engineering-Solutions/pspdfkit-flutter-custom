@@ -1,5 +1,5 @@
 //
-//  Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+//  Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 //
 //  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 //  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -84,27 +84,23 @@ import PSPDFKit
             // First try to find the icon in the app's asset catalog
             if let bundleImage = UIImage(named: iconName) {
                 iconImage = bundleImage
-                NSLog("Using asset catalog image for icon: \(iconName)")
             }
             // Next try SF Symbols (iOS 13+)
             else if let systemImage = UIImage(systemName: iconName) {
                 iconImage = systemImage
-                NSLog("Using SF Symbol for icon: \(iconName)")
             }
-            
+
             // If we found an image, apply it
             if let image = iconImage {
                 buttonItem.image = image
                 buttonItem.title = nil
-                
+
                 // Apply icon color if specified
                 if let iconColorHex = config["iconColor"] as? String, !iconColorHex.isEmpty {
                     if let color = UIColor(hexString: iconColorHex) {
                         buttonItem.tintColor = color
                     }
                 }
-            } else {
-                NSLog("No image found for icon name: \(iconName), using title instead")
             }
         }
     }

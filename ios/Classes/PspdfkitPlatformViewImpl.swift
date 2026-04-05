@@ -1,5 +1,5 @@
 //
-//  Copyright © 2024-2025 PSPDFKit GmbH. All rights reserved.
+//  Copyright © 2024-2026 PSPDFKit GmbH. All rights reserved.
 //
 //  THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
 //  AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -207,27 +207,30 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         }
     }
     
-    func getAnnotations(pageIndex: Int64, type: String, completion: @escaping (Result<Any, any Error>) -> Void) {
+    func getAnnotationsJson(pageIndex: Int64, type: String, completion: @escaping (Result<String, any Error>) -> Void) {
         do {
             guard let document = pdfViewController?.document, document.isValid else {
                completion(.failure(NutrientApiError(code: "", message: "PDF document not found or is invalid.", details: nil)))
                 return
             }
             let annotations = try PspdfkitFlutterHelper.getAnnotations(forPageIndex: PageIndex(pageIndex), andType: type, for: document)
-            completion(.success(annotations))
+            let jsonData = try JSONSerialization.data(withJSONObject: annotations, options: [])
+            let jsonString = String(data: jsonData, encoding: .utf8) ?? "[]"
+            completion(.success(jsonString))
         } catch {
             completion(.failure(error))
         }
     }
-    
-    func getAllUnsavedAnnotations(completion: @escaping (Result<Any, any Error>) -> Void) {
+
+    func getAllUnsavedAnnotationsJson(completion: @escaping (Result<String, any Error>) -> Void) {
         do {
             guard let document = pdfViewController?.document, document.isValid else {
                completion(.failure(NutrientApiError(code: "", message: "PDF document not found or is invalid.", details: nil)))
                 return
             }
-            let annotations = try PspdfkitFlutterHelper.getAllUnsavedAnnotations(for: document)
-            completion(.success(annotations))
+            // getAllUnsavedAnnotations already returns a JSON string
+            let jsonString = try PspdfkitFlutterHelper.getAllUnsavedAnnotations(for: document) as? String ?? "{}"
+            completion(.success(jsonString))
         } catch {
             completion(.failure(error))
         }
@@ -492,24 +495,14 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
     ///   - configuration: The new annotation menu configuration
     ///   - completion: Completion callback with success/failure result
     func setAnnotationMenuConfiguration(configuration: AnnotationMenuConfigurationData, completion: @escaping (Result<Bool?, Error>) -> Void) {
-        do {
-            NSLog("PspdfkitPlatformViewImpl: setAnnotationMenuConfiguration called")
-            
-            // Update the stored configuration - this will be applied when the menu is actually shown
-            self.annotationMenuConfiguration = configuration
-            
-            // Immediately update the annotation menu helper with the new configuration
-            // This ensures that any currently visible menus or immediate menu requests use the new config
-            AnnotationMenuHelper.updateConfiguration(configuration: configuration)
-            
-            NSLog("PspdfkitPlatformViewImpl: Annotation menu configuration updated successfully")
-            
-            // Return success
-            completion(.success(true))
-        } catch {
-            NSLog("PspdfkitPlatformViewImpl: Error updating annotation menu configuration: \(error)")
-            completion(.failure(error))
-        }
+        // Update the stored configuration - this will be applied when the menu is actually shown
+        self.annotationMenuConfiguration = configuration
+
+        // Immediately update the annotation menu helper with the new configuration
+        // This ensures that any currently visible menus or immediate menu requests use the new config
+        AnnotationMenuHelper.updateConfiguration(configuration: configuration)
+
+        completion(.success(true))
     }
 
     /// Updates the annotation menu configuration (internal method)
@@ -550,7 +543,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
             let configuration = try parseAnnotationMenuConfiguration(from: dictionary)
             setAnnotationMenuConfiguration(configuration)
         } catch {
-            print("Warning: Failed to parse annotation menu configuration: \(error)")
+            // Configuration parsing failed - silently ignore invalid configurations
         }
     }
     

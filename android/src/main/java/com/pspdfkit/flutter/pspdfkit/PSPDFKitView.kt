@@ -1,5 +1,5 @@
 /*
- * Copyright © 2018-2025 PSPDFKit GmbH. All rights reserved.
+ * Copyright © 2018-2026 PSPDFKit GmbH. All rights reserved.
  * <p>
  * THIS SOURCE CODE AND ANY ACCOMPANYING DOCUMENTATION ARE PROTECTED BY INTERNATIONAL COPYRIGHT LAW
  * AND MAY NOT BE RESOLD OR REDISTRIBUTED. USAGE IS BOUND TO THE PSPDFKIT LICENSE AGREEMENT.
@@ -128,12 +128,20 @@ internal class PSPDFKitView(
                 }
             }
 
+            // Set theme colors BEFORE the fragment is committed so that
+            // onGetLayoutInflater() can wrap the context with a themed inflater.
+            // This must happen before commitNow() which triggers view creation.
+            val themeColors = configurationAdapter.getThemeColors()
+            if (themeColors != null) {
+                (pdfUiFragment as? FlutterPdfUiFragment)?.setThemeColors(themeColors)
+            }
+
             aiAssistantConfigurationMap?.let {
                 setupAiAssistant(context, it)
             }
 
             fragmentCallbacks = FlutterPdfUiFragmentCallbacks(
-                methodChannel, measurementValueConfigurations,
+                id, methodChannel, measurementValueConfigurations,
                 messenger, FlutterWidgetCallback(widgetCallbacks)
             )
 
@@ -173,6 +181,13 @@ internal class PSPDFKitView(
                         flutterFragment?.let { fragment ->
                             fragment.setOnContextualToolbarLifecycleListener(fragment)
                         }
+
+                        // Pass theme colors to the fragment
+                        val themeColors = configurationAdapter.getThemeColors()
+                        if (themeColors != null) {
+                            val flutterFragment = pdfUiFragment as? FlutterPdfUiFragment
+                            flutterFragment?.setThemeColors(themeColors)
+                        }
                     }
 
                     // Process custom toolbar items
@@ -197,23 +212,8 @@ internal class PSPDFKitView(
                     // Dynamic annotation menu callbacks have been removed
                     // The annotation menu is now configured statically via annotationMenuHandler
 
-                    // Create method call handler to handle Flutter method calls
-                    // Wait for pdfFragment to be available before setting up the handler
-                    try {
-                        val pdfFragment = pdfUiFragment.pdfFragment
-                        if (pdfFragment != null) {
-                            methodCallHandler = PSPDFKitWidgetMethodCallHandler(pdfFragment)
-                            
-                            // Set up method channel for communication with Flutter
-                            methodCallHandler?.let { handler ->
-                                methodChannel.setMethodCallHandler(handler)
-                            }
-                        } else {
-                            Log.w(LOG_TAG, "PdfFragment not yet available, method call handler will be set up later")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(LOG_TAG, "Error setting up method call handler", e)
-                    }
+                    // Method call handler setup is deferred to onFragmentResumed
+                    // because pdfFragment may not be ready during onFragmentAttached
 
                     if (configurationMap?.contains("signatureSavingStrategy") == true) {
                         try {
@@ -223,6 +223,25 @@ internal class PSPDFKitView(
                         }
                     }
 
+                }
+
+                override fun onFragmentResumed(fm: FragmentManager, f: Fragment) {
+                    // Set up method call handler when fragment is resumed
+                    // This ensures pdfFragment is fully initialized
+                    if (f.tag?.contains("Nutrient.Fragment") == true && methodCallHandler == null) {
+                        try {
+                            val pdfFragment = pdfUiFragment.pdfFragment
+                            if (pdfFragment != null) {
+                                methodCallHandler = PSPDFKitWidgetMethodCallHandler(pdfFragment)
+                                methodCallHandler?.let { handler ->
+                                    methodChannel.setMethodCallHandler(handler)
+                                }
+                                Log.d(LOG_TAG, "Method call handler set up successfully in onFragmentResumed")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(LOG_TAG, "Error setting up method call handler in onFragmentResumed", e)
+                        }
+                    }
                 }
             },
             true
@@ -392,11 +411,11 @@ internal class PSPDFKitView(
         
         if (serverUrl != null && jwt != null && sessionId != null) {
             try {
-                // Create AI Assistant with new 10.6+ API and store in companion object
+                // Create AI Assistant with new 10.10+ API and store in companion object
                 aiAssistant = createAiAssistant(
                     context = context,
                     documentsDescriptors = emptyList(),
-                    ipAddress = serverUrl,
+                    serverUrl = serverUrl,
                     sessionId = sessionId,
                     jwtToken = { _ -> jwt }
                 )
@@ -411,6 +430,42 @@ internal class PSPDFKitView(
     companion object {
         private const val LOG_TAG = "PSPDFKitPlugin"
         var  aiAssistant: AiAssistant? = null
+
+        // Registry for PdfFragment instances, keyed by view ID.
+        // This allows Dart adapters to access the native PdfFragment via JNI.
+        private val pdfFragmentRegistry = mutableMapOf<Int, PdfFragment>()
+
+        /**
+         * Registers a PdfFragment for a given view ID.
+         * Called internally when the fragment is attached.
+         */
+        @JvmStatic
+        fun registerPdfFragment(viewId: Int, fragment: PdfFragment) {
+            pdfFragmentRegistry[viewId] = fragment
+            Log.d(LOG_TAG, "Registered PdfFragment for view $viewId")
+        }
+
+        /**
+         * Unregisters the PdfFragment for a given view ID.
+         * Called internally when the view is disposed.
+         */
+        @JvmStatic
+        fun unregisterPdfFragment(viewId: Int) {
+            pdfFragmentRegistry.remove(viewId)
+            Log.d(LOG_TAG, "Unregistered PdfFragment for view $viewId")
+        }
+
+        /**
+         * Gets the PdfFragment for a given view ID.
+         * This method is intended to be called from Dart via JNI.
+         *
+         * @param viewId The platform view ID
+         * @return The PdfFragment instance, or null if not registered
+         */
+        @JvmStatic
+        fun getPdfFragment(viewId: Int): PdfFragment? {
+            return pdfFragmentRegistry[viewId]
+        }
     }
 }
 
