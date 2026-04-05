@@ -578,41 +578,53 @@ class NutrientViewControllerWeb extends NutrientViewController
 
   @override
   Future<bool?> setPageBackgroundColor(Color color) async {
-    // Web: the SDK uses hashed class names (PSPDFKit-2z5hjphww7...) so CSS
-    // selectors can't target pages reliably. Instead, find the SDK's
-    // contentDocument and apply background via a MutationObserver that
-    // styles new page elements as they appear.
+    // Web: PDF content is rendered on a <canvas> so CSS background-color
+    // can't tint the page content like iOS pageColor does. Instead, override
+    // the SDK's CSS custom properties for the viewport/app background, and
+    // add a semi-transparent overlay on each page via a MutationObserver.
     try {
       final r = (color.r * 255).round();
       final g = (color.g * 255).round();
       final b = (color.b * 255).round();
       final css = 'rgb($r, $g, $b)';
+      // Semi-transparent version to overlay on the canvas
+      final cssAlpha = 'rgba($r, $g, $b, 0.15)';
 
-      // Use JS to find the PSPDFKit container and apply background to
-      // all elements with class starting with PSPDFKit- that contain a canvas.
-      // Also set up a MutationObserver to handle pages loaded lazily.
       final script = '''
-(function(css) {
-  function applyBg() {
-    var pages = document.querySelectorAll('[class^="PSPDFKit-"]');
-    for (var i = 0; i < pages.length; i++) {
-      var el = pages[i];
-      if (el.querySelector && el.querySelector('canvas')) {
-        el.style.backgroundColor = css;
-      }
+(function(css, cssAlpha) {
+  // 1. Set viewport/app background via CSS variables
+  var root = document.querySelector('[class^="PSPDFKit-"]');
+  if (root) {
+    root.style.setProperty('--PSPDFKit-Viewport-background', css);
+    root.style.setProperty('--PSPDFKit-App-background', css);
+  }
+
+  // 2. Add a tinted overlay on each page to simulate page tinting.
+  //    This overlays a semi-transparent colour on the rendered canvas.
+  function applyOverlays() {
+    var canvases = document.querySelectorAll('[class^="PSPDFKit-"] canvas');
+    for (var i = 0; i < canvases.length; i++) {
+      var canvas = canvases[i];
+      var parent = canvas.parentElement;
+      if (!parent || parent.querySelector('.trax-page-tint')) continue;
+      var overlay = document.createElement('div');
+      overlay.className = 'trax-page-tint';
+      overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:' + cssAlpha + ';pointer-events:none;z-index:1;';
+      parent.style.position = 'relative';
+      parent.appendChild(overlay);
     }
   }
-  applyBg();
-  var observer = new MutationObserver(function() { applyBg(); });
-  var container = document.querySelector('[class^="PSPDFKit-"]');
-  if (container) {
-    observer.observe(container.parentElement || document.body, {childList: true, subtree: true});
-  }
-})('$css')
+  applyOverlays();
+
+  // Re-apply when new pages are rendered (lazy loading / scrolling)
+  var observer = new MutationObserver(function() { applyOverlays(); });
+  var container = root ? (root.parentElement || document.body) : document.body;
+  observer.observe(container, {childList: true, subtree: true});
+})('$css', '$cssAlpha')
 ''';
 
       globalContext.callMethod('eval'.toJS, script.toJS);
-      if (kDebugMode) print('[NutrientWeb] Page background applied via JS: $css');
+      if (kDebugMode) print('[NutrientWeb] Page background applied: $css');
       return true;
     } catch (e) {
       if (kDebugMode) {
