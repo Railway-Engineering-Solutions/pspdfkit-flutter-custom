@@ -24,6 +24,7 @@ import 'package:nutrient_flutter_web/nutrient_flutter_web.dart'
         NutrientWebStaticExtension,
         NutrientNamespace,
         NutrientRect,
+        WebColorUtils,
         annotationTypeMap,
         pspdfkit;
 
@@ -238,7 +239,7 @@ class NutrientViewControllerWeb extends NutrientViewController
             'set'.toJS, 'interactionMode'.toJS, interactionMode) as JSObject;
         // Apply color if provided
         if (colorToUse != null) {
-          final pspdfkitColor = _createPspdfkitColor(colorToUse);
+          final pspdfkitColor = _createWebColor(colorToUse);
           if (pspdfkitColor != null) {
             updated = updated.callMethod(
                 'set'.toJS, 'strokeColor'.toJS, pspdfkitColor) as JSObject;
@@ -454,21 +455,15 @@ class NutrientViewControllerWeb extends NutrientViewController
     }
   }
 
-  /// Creates a PSPDFKit.Color JS object from a Flutter [Color].
-  JSObject? _createPspdfkitColor(Color color) {
+  /// Creates a Web SDK Color JS object from a Flutter [Color].
+  /// Uses the package's WebColorUtils which handles namespace resolution.
+  JSObject? _createWebColor(Color color) {
     try {
-      final ns = NutrientNamespace.getAsJSObject();
-      final colorClass = ns['Color'] as JSFunction?;
-      if (colorClass == null) return null;
-
-      return colorClass.callAsConstructor({
-        'r': (color.r * 255).round(),
-        'g': (color.g * 255).round(),
-        'b': (color.b * 255).round(),
-      }.jsify()) as JSObject;
+      // ignore: deprecated_member_use
+      return WebColorUtils.colorIntToWebColor(color.value);
     } catch (e) {
       if (kDebugMode) {
-        print('Error creating PSPDFKit color: $e');
+        print('Error creating web color: $e');
       }
       return null;
     }
@@ -477,7 +472,7 @@ class NutrientViewControllerWeb extends NutrientViewController
   /// Applies a color to all annotation tools via annotation presets,
   /// view state colors, and default annotation properties.
   Future<void> _applyColorToViewState(Color color) async {
-    final pspdfkitColor = _createPspdfkitColor(color);
+    final pspdfkitColor = _createWebColor(color);
     if (pspdfkitColor == null) return;
 
     // 1. Override annotation presets — this is the primary mechanism on web.
@@ -513,53 +508,44 @@ class NutrientViewControllerWeb extends NutrientViewController
   }
 
   /// Overrides annotation presets to use the specified color for all tools.
-  /// Uses NutrientNamespace to resolve the correct SDK namespace
-  /// (NutrientViewer or PSPDFKit) and builds Color instances via the SDK.
+  /// Uses WebColorUtils from the nutrient_flutter_web package to create
+  /// Color instances, which handles namespace resolution correctly.
   Future<void> _applyColorToAnnotationPresets(Color color) async {
     try {
-      final pspdfkitColor = _createPspdfkitColor(color);
-      if (pspdfkitColor == null) {
-        if (kDebugMode) print('Could not create SDK color instance');
+      final webColor = _createWebColor(color);
+      if (webColor == null) {
+        if (kDebugMode) print('Could not create web color instance');
         return;
       }
 
-      // Resolve the correct SDK namespace name for eval
-      final nsName = NutrientNamespace.isNutrientViewer
-          ? 'NutrientViewer'
-          : 'PSPDFKit';
+      final presetIds = [
+        'inkPen', 'highlighter', 'freeText', 'freeTextCallout',
+        'stamp', 'note', 'square', 'circle', 'ellipse',
+        'line', 'arrow', 'polygon', 'polyline', 'cloudy',
+        'highlight', 'underline', 'strikeout', 'squiggly',
+        'redaction', 'signature', 'image',
+      ];
 
-      final r = (color.r * 255).round();
-      final g = (color.g * 255).round();
-      final b = (color.b * 255).round();
+      // Build presets as a plain Dart map, jsify it, then replace
+      // the color values with actual Web SDK Color instances.
+      final dartPresets = <String, dynamic>{};
+      for (final id in presetIds) {
+        dartPresets[id] = <String, dynamic>{
+          'strokeColor': 'PLACEHOLDER',
+          'fillColor': 'PLACEHOLDER',
+        };
+      }
+      final jsPresets = dartPresets.jsify() as JSObject;
 
-      // Build the entire presets object in pure JS so Color instances
-      // are created natively without any Dart-to-JS conversion issues.
-      final script = '''
-(function() {
-  var c = new $nsName.Color({r: $r, g: $g, b: $b});
-  var presets = {};
-  var ids = [
-    "inkPen", "highlighter", "freeText", "freeTextCallout",
-    "stamp", "note", "square", "circle", "ellipse",
-    "line", "arrow", "polygon", "polyline", "cloudy",
-    "highlight", "underline", "strikeout", "squiggly",
-    "redaction", "signature", "image"
-  ];
-  for (var i = 0; i < ids.length; i++) {
-    presets[ids[i]] = { strokeColor: c, fillColor: c };
-  }
-  return presets;
-})()
-''';
-
-      final jsPresets = globalContext.callMethod('eval'.toJS, script.toJS);
-      if (jsPresets == null) {
-        if (kDebugMode) print('eval returned null for annotation presets');
-        return;
+      // Replace placeholders with actual SDK Color objects
+      for (final id in presetIds) {
+        final preset = jsPresets[id] as JSObject;
+        preset['strokeColor'] = webColor;
+        preset['fillColor'] = webColor;
       }
 
-      if (kDebugMode) print('Setting annotation presets via $nsName');
-      await instance.setAnnotationPresets(jsPresets as JSAny).toDart;
+      if (kDebugMode) print('Setting annotation presets for ${presetIds.length} tools');
+      await instance.setAnnotationPresets(jsPresets).toDart;
       if (kDebugMode) print('Annotation presets set successfully');
     } catch (e) {
       if (kDebugMode) {
@@ -654,7 +640,7 @@ class NutrientViewControllerWeb extends NutrientViewController
       final size = (annotations['size'] as JSNumber?)?.toDartInt ?? 0;
       if (size == 0) return;
 
-      final lockedColor = _createPspdfkitColor(_lockedAnnotationColor!);
+      final lockedColor = _createWebColor(_lockedAnnotationColor!);
       if (lockedColor == null) return;
 
       final lockedR = (_lockedAnnotationColor!.r * 255).round();
