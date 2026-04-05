@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v7';
+  static const _buildId = 'nutrient-web-controller-v8';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -592,43 +592,62 @@ class NutrientViewControllerWeb extends NutrientViewController
 
       final script = '''
 (function(css, r, g, b) {
+  console.log('[PageBG-v8] Starting page background tint: ' + css);
+
   // 1. Set viewport/app background via CSS variables
   var root = document.querySelector('[class^="PSPDFKit-"]');
+  console.log('[PageBG-v8] Root element found: ' + !!root);
   if (root) {
     root.style.setProperty('--PSPDFKit-Viewport-background', css);
     root.style.setProperty('--PSPDFKit-App-background', css);
+    console.log('[PageBG-v8] CSS variables set');
   }
 
   // 2. Tint page canvases using globalCompositeOperation = 'destination-over'
-  //    which draws BEHIND existing content — white areas become the tint colour.
-  var tinted = new WeakSet();
-
   function tintCanvas(canvas) {
     try {
       var ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        console.log('[PageBG-v8] No 2d context for canvas ' + canvas.width + 'x' + canvas.height);
+        return false;
+      }
       ctx.save();
       ctx.globalCompositeOperation = 'destination-over';
       ctx.fillStyle = css;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.restore();
-    } catch(e) {}
+      return true;
+    } catch(e) {
+      console.log('[PageBG-v8] tintCanvas error: ' + e);
+      return false;
+    }
   }
 
   function applyTint() {
     var canvases = document.querySelectorAll('[class^="PSPDFKit-"] canvas');
+    console.log('[PageBG-v8] Found ' + canvases.length + ' canvases');
+    var tinted = 0;
     for (var i = 0; i < canvases.length; i++) {
-      tintCanvas(canvases[i]);
+      var c = canvases[i];
+      console.log('[PageBG-v8] Canvas ' + i + ': ' + c.width + 'x' + c.height + ' webgl=' + !!c.getContext('webgl2'));
+      if (tintCanvas(c)) tinted++;
     }
+    console.log('[PageBG-v8] Tinted ' + tinted + '/' + canvases.length + ' canvases');
   }
   applyTint();
 
   // Re-apply when DOM changes (new pages rendered, scrolling, zoom)
+  var mutationCount = 0;
   var observer = new MutationObserver(function() {
+    mutationCount++;
+    if (mutationCount <= 5) {
+      console.log('[PageBG-v8] MutationObserver fired (#' + mutationCount + ')');
+    }
     requestAnimationFrame(applyTint);
   });
   var container = root ? (root.parentElement || document.body) : document.body;
   observer.observe(container, {childList: true, subtree: true, attributes: true, attributeFilter: ['width', 'height']});
+  console.log('[PageBG-v8] MutationObserver set up');
 })('$css', $r, $g, $b)
 ''';
 
