@@ -204,15 +204,12 @@ class NutrientViewControllerWeb extends NutrientViewController
       final tool = annotationTool ?? AnnotationTool.inkPen;
       final colorToUse = color ?? _defaultAnnotationColor;
 
-      // Get the PSPDFKit.InteractionMode constant from the SDK
-      final pspdfkitNamespace = globalContext['PSPDFKit'] as JSObject?;
-      if (pspdfkitNamespace == null) {
-        throw Exception('PSPDFKit namespace not found');
-      }
+      // Get the InteractionMode constant from the SDK namespace
+      final sdkNamespace = NutrientNamespace.getAsJSObject();
       final interactionModeNamespace =
-          pspdfkitNamespace['InteractionMode'] as JSObject?;
+          sdkNamespace['InteractionMode'] as JSObject?;
       if (interactionModeNamespace == null) {
-        throw Exception('PSPDFKit.InteractionMode namespace not found');
+        throw Exception('InteractionMode namespace not found in SDK');
       }
 
       final modeName = tool.toWebInteractionMode();
@@ -303,17 +300,14 @@ class NutrientViewControllerWeb extends NutrientViewController
   @override
   Future<void> zoomToRect(int pageIndex, Rect rect) async {
     try {
-      final pspdfkitNamespace = globalContext['PSPDFKit'] as JSObject?;
-      if (pspdfkitNamespace == null) {
-        throw Exception('PSPDFKit namespace not found');
-      }
-      final geometryNamespace = pspdfkitNamespace['Geometry'] as JSObject?;
+      final sdkNamespace = NutrientNamespace.getAsJSObject();
+      final geometryNamespace = sdkNamespace['Geometry'] as JSObject?;
       if (geometryNamespace == null) {
-        throw Exception('PSPDFKit.Geometry namespace not found');
+        throw Exception('Geometry namespace not found in SDK');
       }
       final rectConstructor = geometryNamespace['Rect'] as JSFunction?;
       if (rectConstructor == null) {
-        throw Exception('PSPDFKit.Geometry.Rect constructor not found');
+        throw Exception('Geometry.Rect constructor not found in SDK');
       }
 
       final rectData = {
@@ -463,9 +457,8 @@ class NutrientViewControllerWeb extends NutrientViewController
   /// Creates a PSPDFKit.Color JS object from a Flutter [Color].
   JSObject? _createPspdfkitColor(Color color) {
     try {
-      final pspdfkitNamespace = globalContext['PSPDFKit'] as JSObject?;
-      if (pspdfkitNamespace == null) return null;
-      final colorClass = pspdfkitNamespace['Color'] as JSFunction?;
+      final ns = NutrientNamespace.getAsJSObject();
+      final colorClass = ns['Color'] as JSFunction?;
       if (colorClass == null) return null;
 
       return colorClass.callAsConstructor({
@@ -520,19 +513,30 @@ class NutrientViewControllerWeb extends NutrientViewController
   }
 
   /// Overrides annotation presets to use the specified color for all tools.
-  /// Builds the entire presets object in pure JavaScript to avoid any
-  /// Dart-to-JS conversion issues with PSPDFKit.Color instances.
+  /// Uses NutrientNamespace to resolve the correct SDK namespace
+  /// (NutrientViewer or PSPDFKit) and builds Color instances via the SDK.
   Future<void> _applyColorToAnnotationPresets(Color color) async {
     try {
+      final pspdfkitColor = _createPspdfkitColor(color);
+      if (pspdfkitColor == null) {
+        if (kDebugMode) print('Could not create SDK color instance');
+        return;
+      }
+
+      // Resolve the correct SDK namespace name for eval
+      final nsName = NutrientNamespace.isNutrientViewer
+          ? 'NutrientViewer'
+          : 'PSPDFKit';
+
       final r = (color.r * 255).round();
       final g = (color.g * 255).round();
       final b = (color.b * 255).round();
 
-      // Build the entire presets object in pure JS so PSPDFKit.Color
-      // instances are created natively without any Dart jsify conversion.
+      // Build the entire presets object in pure JS so Color instances
+      // are created natively without any Dart-to-JS conversion issues.
       final script = '''
 (function() {
-  var c = new PSPDFKit.Color({r: $r, g: $g, b: $b});
+  var c = new $nsName.Color({r: $r, g: $g, b: $b});
   var presets = {};
   var ids = [
     "inkPen", "highlighter", "freeText", "freeTextCallout",
@@ -554,7 +558,7 @@ class NutrientViewControllerWeb extends NutrientViewController
         return;
       }
 
-      if (kDebugMode) print('Setting annotation presets via eval');
+      if (kDebugMode) print('Setting annotation presets via $nsName');
       await instance.setAnnotationPresets(jsPresets as JSAny).toDart;
       if (kDebugMode) print('Annotation presets set successfully');
     } catch (e) {
