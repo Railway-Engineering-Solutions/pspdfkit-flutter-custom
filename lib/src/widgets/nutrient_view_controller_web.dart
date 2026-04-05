@@ -36,7 +36,7 @@ class NutrientViewControllerWeb extends NutrientViewController
     with AnnotationJsonConverter {
   final NutrientWebInstance instance;
 
-  static const _buildId = 'nutrient-web-controller-v2';
+  static const _buildId = 'nutrient-web-controller-v3';
 
   NutrientViewControllerWeb(this.instance) {
     if (kDebugMode) print('[$_buildId] Controller created');
@@ -531,23 +531,40 @@ class NutrientViewControllerWeb extends NutrientViewController
         'redaction', 'signature', 'image',
       ];
 
-      // Build JS objects using jsify with dummy content (empty map jsify
-      // returns null). Then set the actual Color properties via setProperty.
-      JSObject newJsObject() =>
-          <String, dynamic>{'_': 0}.jsify() as JSObject;
+      // Read existing presets from the instance so we preserve the SDK's
+      // internal format (Immutable.js records), and only override colors.
+      final existingPresets = (instance as JSObject)
+          .getProperty('annotationPresets'.toJS);
 
-      final jsPresets = newJsObject();
-
-      for (final id in presetIds) {
-        final preset = newJsObject();
-        preset.setProperty('strokeColor'.toJS, webColor);
-        preset.setProperty('fillColor'.toJS, webColor);
-        jsPresets.setProperty(id.toJS, preset);
+      if (kDebugMode) {
+        print('Existing presets type: ${existingPresets.runtimeType}, isNull: ${existingPresets == null}');
       }
 
-      if (kDebugMode) print('Setting annotation presets for ${presetIds.length} tools');
-      await instance.setAnnotationPresets(jsPresets).toDart;
-      if (kDebugMode) print('Annotation presets set successfully');
+      if (existingPresets != null) {
+        // Modify each preset in the existing presets object
+        final presetsObj = existingPresets as JSObject;
+        for (final id in presetIds) {
+          final existing = presetsObj.getProperty(id.toJS);
+          if (existing != null) {
+            // Update the existing preset's color via Immutable.js .set()
+            final preset = existing as JSObject;
+            try {
+              var updated = preset.callMethod('set'.toJS, 'strokeColor'.toJS, webColor) as JSObject;
+              updated = updated.callMethod('set'.toJS, 'fillColor'.toJS, webColor) as JSObject;
+              presetsObj.setProperty(id.toJS, updated);
+            } catch (e) {
+              // If .set() fails (not Immutable), try direct property assignment
+              preset.setProperty('strokeColor'.toJS, webColor);
+              preset.setProperty('fillColor'.toJS, webColor);
+            }
+          }
+        }
+        if (kDebugMode) print('Setting modified annotation presets for ${presetIds.length} tools');
+        await instance.setAnnotationPresets(presetsObj).toDart;
+        if (kDebugMode) print('Annotation presets set successfully');
+      } else {
+        if (kDebugMode) print('No existing presets found on instance');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error applying color to annotation presets: $e');
