@@ -491,12 +491,12 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         }
 
         // Hide color UI: disable color presets and remove color keys from the inspector
-        pdfViewController?.updateConfiguration(withBuilder: { builder in
+        pdfViewController?.updateConfiguration(builder: { builder in
             builder.typesShowingColorPresets = []
 
             // Remove color/fillColor from all annotation type inspector properties
-            if let existingProps = builder.propertiesForAnnotations as? [String: Any] {
-                var updatedProps = [String: Any]()
+            if let existingProps = builder.propertiesForAnnotations as? [Annotation.Tool: Any] {
+                var updatedProps = [Annotation.Tool: Any]()
                 for (annotationType, value) in existingProps {
                     if let groups = value as? [[AnnotationStyle.Key]] {
                         let filtered = groups.map { group in
@@ -552,7 +552,7 @@ public class PspdfkitPlatformViewImpl: NSObject, NutrientViewControllerApi, PDFV
         }
 
         // Use pageColor to tint white page areas so the sheet appears coloured
-        document.updateRenderOptions(forType: .all) { options in
+        document.updateRenderOptions(for: .all) { options in
             options.pageColor = uiColor
         }
 
