@@ -510,6 +510,7 @@ class NutrientViewControllerWeb extends NutrientViewController
   /// Overrides annotation presets to use the specified color for all tools.
   /// Uses WebColorUtils from the nutrient_flutter_web package to create
   /// Color instances, which handles namespace resolution correctly.
+  /// Builds JS objects entirely through interop to avoid jsify issues.
   Future<void> _applyColorToAnnotationPresets(Color color) async {
     try {
       final webColor = _createWebColor(color);
@@ -526,22 +527,18 @@ class NutrientViewControllerWeb extends NutrientViewController
         'redaction', 'signature', 'image',
       ];
 
-      // Build presets as a plain Dart map, jsify it, then replace
-      // the color values with actual Web SDK Color instances.
-      final dartPresets = <String, dynamic>{};
-      for (final id in presetIds) {
-        dartPresets[id] = <String, dynamic>{
-          'strokeColor': 'PLACEHOLDER',
-          'fillColor': 'PLACEHOLDER',
-        };
-      }
-      final jsPresets = dartPresets.jsify() as JSObject;
+      // Build JS objects entirely through JS interop — no jsify.
+      // Use Object.create(null) via the JS Object constructor.
+      final objectConstructor = globalContext['Object'] as JSObject;
+      final jsPresets =
+          objectConstructor.callMethod('create'.toJS, null) as JSObject;
 
-      // Replace placeholders with actual SDK Color objects
       for (final id in presetIds) {
-        final preset = jsPresets[id] as JSObject;
-        preset['strokeColor'] = webColor;
-        preset['fillColor'] = webColor;
+        final preset =
+            objectConstructor.callMethod('create'.toJS, null) as JSObject;
+        preset.setProperty('strokeColor'.toJS, webColor);
+        preset.setProperty('fillColor'.toJS, webColor);
+        jsPresets.setProperty(id.toJS, preset);
       }
 
       if (kDebugMode) print('Setting annotation presets for ${presetIds.length} tools');
