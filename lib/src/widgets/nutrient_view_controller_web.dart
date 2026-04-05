@@ -224,6 +224,11 @@ class NutrientViewControllerWeb extends NutrientViewController
         return false;
       }
 
+      // Re-apply locked color presets before entering annotation mode
+      if (_lockedAnnotationColor != null) {
+        _applyColorToAnnotationPresets(_lockedAnnotationColor!);
+      }
+
       // For text markup tools, set the annotation preset first
       final presetId = _getAnnotationPresetId(tool);
       if (presetId != null) {
@@ -515,33 +520,15 @@ class NutrientViewControllerWeb extends NutrientViewController
   }
 
   /// Overrides annotation presets to use the specified color for all tools.
-  /// This is the correct way to control tool colors on the Web SDK —
-  /// each tool reads its color from its annotation preset.
+  /// Each tool reads its color from its annotation preset, so this is the
+  /// correct way to control tool colors on the Web SDK.
+  ///
+  /// Colors must be PSPDFKit.Color instances (not plain {r,g,b} maps),
+  /// so we build the presets object via JS interop rather than jsify().
   void _applyColorToAnnotationPresets(Color color) {
     try {
-      final colorMap = {
-        'r': (color.r * 255).round(),
-        'g': (color.g * 255).round(),
-        'b': (color.b * 255).round(),
-      };
-
-      // Get existing presets or start fresh
-      final existingPresets = instance.annotationPresets;
-      final presets = <String, dynamic>{};
-
-      if (existingPresets != null) {
-        // Convert existing presets to a mutable map
-        try {
-          final dartified = existingPresets.dartify();
-          if (dartified is Map) {
-            for (final entry in dartified.entries) {
-              presets[entry.key.toString()] = entry.value;
-            }
-          }
-        } catch (_) {
-          // If conversion fails, start with empty presets
-        }
-      }
+      final pspdfkitColor = _createPspdfkitColor(color);
+      if (pspdfkitColor == null) return;
 
       // All preset IDs that the Web SDK uses
       final presetIds = [
@@ -552,23 +539,20 @@ class NutrientViewControllerWeb extends NutrientViewController
         'redaction', 'signature', 'image',
       ];
 
+      // Build the presets JS object manually so PSPDFKit.Color instances
+      // are preserved (jsify() would flatten them to plain objects).
+      final presetsObj = globalContext.callMethod(
+          'eval'.toJS, '({})'.toJS) as JSObject;
+
       for (final id in presetIds) {
-        final existing = presets[id];
-        if (existing is Map) {
-          // Merge with existing preset, overriding color
-          final updated = Map<String, dynamic>.from(existing);
-          updated['strokeColor'] = colorMap;
-          if (updated.containsKey('fillColor')) {
-            updated['fillColor'] = colorMap;
-          }
-          presets[id] = updated;
-        } else {
-          // Create a new preset entry
-          presets[id] = {'strokeColor': colorMap};
-        }
+        final presetObj = globalContext.callMethod(
+            'eval'.toJS, '({})'.toJS) as JSObject;
+        presetObj['strokeColor'] = pspdfkitColor;
+        presetObj['fillColor'] = pspdfkitColor;
+        presetsObj[id] = presetObj;
       }
 
-      instance.setAnnotationPresets(presets.jsify()!);
+      instance.setAnnotationPresets(presetsObj);
     } catch (e) {
       if (kDebugMode) {
         print('Error applying color to annotation presets: $e');
