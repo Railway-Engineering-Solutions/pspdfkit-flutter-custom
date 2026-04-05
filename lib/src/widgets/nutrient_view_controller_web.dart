@@ -476,12 +476,17 @@ class NutrientViewControllerWeb extends NutrientViewController
     }
   }
 
-  /// Applies a color to the view state's stroke and fill colors, and to
-  /// defaultAnnotationProperties for all annotation types.
+  /// Applies a color to all annotation tools via annotation presets,
+  /// view state colors, and default annotation properties.
   void _applyColorToViewState(Color color) {
     final pspdfkitColor = _createPspdfkitColor(color);
     if (pspdfkitColor == null) return;
 
+    // 1. Override annotation presets — this is the primary mechanism on web.
+    // Each tool reads its color from its preset, not from the view state.
+    _applyColorToAnnotationPresets(color);
+
+    // 2. Also set view state colors as a fallback.
     final annotationTypes = [
       'ink', 'highlight', 'underline', 'strikeOut', 'squiggly',
       'note', 'freeText', 'square', 'circle', 'line', 'polygon', 'polyline',
@@ -507,6 +512,68 @@ class NutrientViewControllerWeb extends NutrientViewController
     }).toJS;
 
     instance.setViewState(updateFn);
+  }
+
+  /// Overrides annotation presets to use the specified color for all tools.
+  /// This is the correct way to control tool colors on the Web SDK —
+  /// each tool reads its color from its annotation preset.
+  void _applyColorToAnnotationPresets(Color color) {
+    try {
+      final colorMap = {
+        'r': (color.r * 255).round(),
+        'g': (color.g * 255).round(),
+        'b': (color.b * 255).round(),
+      };
+
+      // Get existing presets or start fresh
+      final existingPresets = instance.annotationPresets;
+      final presets = <String, dynamic>{};
+
+      if (existingPresets != null) {
+        // Convert existing presets to a mutable map
+        try {
+          final dartified = existingPresets.dartify();
+          if (dartified is Map) {
+            for (final entry in dartified.entries) {
+              presets[entry.key.toString()] = entry.value;
+            }
+          }
+        } catch (_) {
+          // If conversion fails, start with empty presets
+        }
+      }
+
+      // All preset IDs that the Web SDK uses
+      final presetIds = [
+        'inkPen', 'highlighter', 'freeText', 'freeTextCallout',
+        'stamp', 'note', 'square', 'circle', 'ellipse',
+        'line', 'arrow', 'polygon', 'polyline', 'cloudy',
+        'highlight', 'underline', 'strikeout', 'squiggly',
+        'redaction', 'signature', 'image',
+      ];
+
+      for (final id in presetIds) {
+        final existing = presets[id];
+        if (existing is Map) {
+          // Merge with existing preset, overriding color
+          final updated = Map<String, dynamic>.from(existing);
+          updated['strokeColor'] = colorMap;
+          if (updated.containsKey('fillColor')) {
+            updated['fillColor'] = colorMap;
+          }
+          presets[id] = updated;
+        } else {
+          // Create a new preset entry
+          presets[id] = {'strokeColor': colorMap};
+        }
+      }
+
+      instance.setAnnotationPresets(presets.jsify()!);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error applying color to annotation presets: $e');
+      }
+    }
   }
 
   @override
