@@ -36,3 +36,7 @@ class JsObject {
 class JsArray {
   JsArray();
 }
+
+/// Stub for dart:js allowInterop — needed because `dart:js` is conditionally
+/// replaced with this file on non-web platforms.
+F allowInterop<F extends Function>(F f) => f;

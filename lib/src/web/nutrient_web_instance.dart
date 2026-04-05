@@ -33,6 +33,10 @@ class NutrientWebInstance {
   /// This color will be used when no specific color is provided
   Color? _defaultAnnotationColor;
 
+  /// Locked annotation color. When set, all annotation color changes are
+  /// reverted to this color and color controls are effectively disabled.
+  Color? _lockedAnnotationColor;
+
   NutrientWebInstance(this._nutrientInstance) {
     // Set up event listeners to monitor annotation creation mode changes
     _setupColorInterceptionListeners();
@@ -156,6 +160,126 @@ class NutrientWebInstance {
 
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor => _defaultAnnotationColor;
+
+  /// Locks annotation color to a single color for all annotation tools.
+  /// Sets the default color, and intercepts any annotation updates to
+  /// revert unauthorized color changes.
+  Future<void> setLockedAnnotationColor(Color color) async {
+    _lockedAnnotationColor = color;
+    await setDefaultAnnotationColor(color);
+    _setupLockedColorEnforcement();
+  }
+
+  /// Sets up listeners to enforce the locked annotation color.
+  /// Intercepts annotation creation and update events to ensure the locked
+  /// color is always applied.
+  void _setupLockedColorEnforcement() {
+    try {
+      // Listen for annotation updates to revert unauthorized color changes
+      _nutrientInstance.callMethod('addEventListener', [
+        'annotations.update',
+        allowInterop((dynamic event) {
+          try {
+            if (_lockedAnnotationColor == null) return;
+            _enforceLockedColorOnEvent(event);
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error enforcing locked color on update: $e');
+            }
+          }
+        })
+      ]);
+
+      // Listen for annotation creation to force the locked color
+      _nutrientInstance.callMethod('addEventListener', [
+        'annotations.create',
+        allowInterop((dynamic event) {
+          try {
+            if (_lockedAnnotationColor == null) return;
+            _enforceLockedColorOnEvent(event);
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error enforcing locked color on create: $e');
+            }
+          }
+        })
+      ]);
+
+      // Also continuously enforce color in the viewState so the toolbar
+      // always reflects the locked color
+      _nutrientInstance.callMethod('addEventListener', [
+        'viewStateChange',
+        allowInterop((dynamic event) {
+          try {
+            if (_lockedAnnotationColor == null) return;
+            _ensureDefaultColorApplied();
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error enforcing locked color on viewState change: $e');
+            }
+          }
+        })
+      ]);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Warning: Could not set up locked color enforcement: $e');
+      }
+    }
+  }
+
+  /// Enforces the locked color on annotations from an event.
+  void _enforceLockedColorOnEvent(dynamic event) {
+    if (_lockedAnnotationColor == null) return;
+
+    try {
+      var colorClass = context['PSPDFKit']?['Color'];
+      if (colorClass == null) return;
+
+      var lockedColor = JsObject(colorClass, [
+        JsObject.jsify({
+          'r': (_lockedAnnotationColor!.r * 255).round(),
+          'g': (_lockedAnnotationColor!.g * 255).round(),
+          'b': (_lockedAnnotationColor!.b * 255).round(),
+        })
+      ]);
+
+      // Get annotations from the event
+      var annotations = event?['annotations'];
+      if (annotations == null) return;
+
+      var size = annotations['size'];
+      if (size == null || size == 0) return;
+
+      for (var i = 0; i < size; i++) {
+        var annotation = annotations.callMethod('get', [i]);
+        if (annotation == null) continue;
+
+        // Check if annotation color differs from locked color
+        var currentColor = annotation['strokeColor'] ?? annotation['color'];
+        if (currentColor != null) {
+          var r = currentColor['r'];
+          var g = currentColor['g'];
+          var b = currentColor['b'];
+          var lockedR = (_lockedAnnotationColor!.r * 255).round();
+          var lockedG = (_lockedAnnotationColor!.g * 255).round();
+          var lockedB = (_lockedAnnotationColor!.b * 255).round();
+
+          if (r != lockedR || g != lockedG || b != lockedB) {
+            // Color was changed — revert it
+            var updated = annotation.callMethod('set', ['strokeColor', lockedColor]);
+            if (annotation['fillColor'] != null) {
+              updated = updated.callMethod('set', ['fillColor', lockedColor]);
+            }
+            _nutrientInstance.callMethod('update', [updated]);
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error enforcing locked color: $e');
+      }
+    }
+  }
 
   /// Sets up event listeners to intercept annotation creation mode changes
   /// and automatically apply the default color

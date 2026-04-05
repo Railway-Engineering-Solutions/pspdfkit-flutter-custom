@@ -12,8 +12,3 @@ import 'dart:async';
 Future<dynamic> promiseToFuture(dynamic promise) {
   throw UnimplementedError('promiseToFuture is only available on web');
 }
-
-/// Stub for allowInterop - not available on non-web platforms
-Function allowInterop(Function f) {
-  throw UnimplementedError('allowInterop is only available on web');
-}

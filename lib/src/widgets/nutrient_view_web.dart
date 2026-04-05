@@ -169,7 +169,7 @@ class _NutrientViewState extends State<NutrientView> {
     );
   }
 
-  void _onViewCreated(NutrientViewHandle handle) {
+  Future<void> _onViewCreated(NutrientViewHandle handle) async {
     if (!mounted) return;
 
     try {

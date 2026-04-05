@@ -148,8 +148,9 @@ class _LegacyControllerWrapper extends PspdfkitWidgetController {
       _delegate.getZoomScale(pageIndex);
 
   @override
-  Future<bool?> enterAnnotationCreationMode([AnnotationTool? annotationTool]) =>
-      _delegate.enterAnnotationCreationMode(annotationTool);
+  Future<bool?> enterAnnotationCreationMode(
+          [AnnotationTool? annotationTool, Color? color]) =>
+      _delegate.enterAnnotationCreationMode(annotationTool, color);
 
   @override
   Future<bool?> exitAnnotationCreationMode() =>

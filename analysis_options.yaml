@@ -10,6 +10,9 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - lib/src/api/nutrient_api.g.dart
+    # Legacy dart:js-based web instance — only used on web where dart:js works.
+    # Analyzer errors on non-web platforms are expected and harmless.
+    - lib/src/web/nutrient_web_instance.dart
   #    - ../../core/Vendor
   errors:
     invalid_assignment: error

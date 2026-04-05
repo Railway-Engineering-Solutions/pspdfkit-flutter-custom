@@ -20,6 +20,7 @@ class NutrientWebInstance {
   dynamic get jsObject => throw UnimplementedError('Web only');
 
   Future<void> setDefaultAnnotationColor(Color color) async {}
+  Future<void> setLockedAnnotationColor(Color color) async {}
   Color? get defaultAnnotationColor => null;
   Future<void> save() async {}
   Future<void> addAnnotation(Map<String, dynamic> jsonAnnotation,

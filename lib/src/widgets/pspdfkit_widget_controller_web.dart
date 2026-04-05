@@ -311,7 +311,15 @@ class PspdfkitWidgetControllerWeb extends PspdfkitWidgetController
 
   @override
   Future<bool?> setLockedAnnotationColor(Color color) async {
-    return setDefaultAnnotationColor(color);
+    try {
+      await pspdfkitInstance.setLockedAnnotationColor(color);
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting locked annotation color: $e');
+      }
+      return false;
+    }
   }
 
   /// Gets the current default annotation color.

@@ -16,10 +16,6 @@ import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/events/nutrient_events_extension.dart';
 import '../document/annotation_json_converter.dart';
 import '../document/annotation_manager_web.dart';
-import '../web/nutrient_web.dart'
-    if (dart.library.io) '../web/nutrient_web_stub.dart';
-import '../web/nutrient_web_instance.dart'
-    if (dart.library.io) '../web/nutrient_web_instance_stub.dart';
 import 'package:nutrient_flutter/src/document/annotation_json_converter.dart';
 import 'package:nutrient_flutter_web/nutrient_flutter_web.dart'
     show
@@ -47,6 +43,12 @@ class NutrientViewControllerWeb extends NutrientViewController
 
   // Map to track legacy NutrientEvent listeners
   final Map<NutrientEvent, JSFunction> _legacyEventListeners = {};
+
+  /// Default color for all annotation operations.
+  Color? _defaultAnnotationColor;
+
+  /// Locked annotation color — when set, color changes are reverted.
+  Color? _lockedAnnotationColor;
 
   @override
   Future<bool?> importXfdf(String xfdfPath) async {
@@ -199,37 +201,92 @@ class NutrientViewControllerWeb extends NutrientViewController
   Future<bool?> enterAnnotationCreationMode(
       [AnnotationTool? annotationTool, Color? color]) async {
     try {
-      // Use provided color or fall back to default color
-      final colorToUse = color ?? pspdfkitInstance.defaultAnnotationColor;
+      final tool = annotationTool ?? AnnotationTool.inkPen;
+      final colorToUse = color ?? _defaultAnnotationColor;
 
-      if (annotationTool != null) {
-        await pspdfkitInstance.setToolMode(annotationTool, colorToUse);
-      } else {
-        // Use a default annotation tool (ink) if none is specified
-        // This is consistent with native implementations
-        await pspdfkitInstance.setToolMode(AnnotationTool.inkPen, colorToUse);
+      // Get the PSPDFKit.InteractionMode constant from the SDK
+      final pspdfkitNamespace = globalContext['PSPDFKit'] as JSObject?;
+      if (pspdfkitNamespace == null) {
+        throw Exception('PSPDFKit namespace not found');
       }
-      return Future.value(true);
+      final interactionModeNamespace =
+          pspdfkitNamespace['InteractionMode'] as JSObject?;
+      if (interactionModeNamespace == null) {
+        throw Exception('PSPDFKit.InteractionMode namespace not found');
+      }
+
+      final modeName = tool.toWebInteractionMode();
+      final interactionMode = interactionModeNamespace[modeName];
+      if (interactionMode == null) {
+        if (kDebugMode) {
+          print('InteractionMode "$modeName" not found in SDK');
+        }
+        return false;
+      }
+
+      // For text markup tools, set the annotation preset first
+      final presetId = _getAnnotationPresetId(tool);
+      if (presetId != null) {
+        await instance.setCurrentAnnotationPreset(presetId).toDart;
+      }
+
+      // Update view state to enter annotation mode
+      final updateFn = ((JSObject viewState) {
+        JSObject updated = viewState.callMethod(
+            'set'.toJS, 'interactionMode'.toJS, interactionMode) as JSObject;
+        // Apply color if provided
+        if (colorToUse != null) {
+          final pspdfkitColor = _createPspdfkitColor(colorToUse);
+          if (pspdfkitColor != null) {
+            updated = updated.callMethod(
+                'set'.toJS, 'strokeColor'.toJS, pspdfkitColor) as JSObject;
+            updated = updated.callMethod(
+                'set'.toJS, 'fillColor'.toJS, pspdfkitColor) as JSObject;
+          }
+        }
+        return updated;
+      }).toJS;
+
+      instance.setViewState(updateFn);
+      return true;
     } catch (e) {
       if (kDebugMode) {
         print('Error entering annotation creation mode: $e');
       }
-      return Future.value(false);
+      return false;
+    }
+  }
+
+  /// Returns the annotation preset ID for tools that require it.
+  String? _getAnnotationPresetId(AnnotationTool tool) {
+    switch (tool) {
+      case AnnotationTool.highlight:
+        return 'highlight';
+      case AnnotationTool.underline:
+        return 'underline';
+      case AnnotationTool.strikeOut:
+        return 'strikeout';
+      case AnnotationTool.squiggly:
+        return 'squiggly';
+      default:
+        return null;
     }
   }
 
   @override
   Future<bool?> exitAnnotationCreationMode() async {
     try {
-      // Set tool mode to null to exit annotation creation mode
-      // This will reset to the default interaction mode
-      await pspdfkitInstance.setToolMode(null);
-      return Future.value(true);
+      final updateFn = ((JSObject viewState) {
+        return viewState.callMethod('set'.toJS, 'interactionMode'.toJS, null);
+      }).toJS;
+
+      instance.setViewState(updateFn);
+      return true;
     } catch (e) {
       if (kDebugMode) {
         print('Error exiting annotation creation mode: $e');
       }
-      return Future.value(false);
+      return false;
     }
   }
 
@@ -241,7 +298,6 @@ class NutrientViewControllerWeb extends NutrientViewController
   @override
   Future<void> zoomToRect(int pageIndex, Rect rect) async {
     try {
-      // Create a PSPDFKit.Geometry.Rect object using the SDK constructor
       final pspdfkitNamespace = globalContext['PSPDFKit'] as JSObject?;
       if (pspdfkitNamespace == null) {
         throw Exception('PSPDFKit namespace not found');
@@ -316,8 +372,6 @@ class NutrientViewControllerWeb extends NutrientViewController
 
   /// Tries to convert a JS object (e.g. Immutable.js Record) to a Dart map
   /// using the Web SDK's `Annotations.toSerializableObject()`.
-  ///
-  /// Returns null if the object cannot be converted.
   Map<String, dynamic>? _tryConvertJsAnnotation(dynamic jsObj) {
     try {
       final ns = NutrientNamespace.getAsJSObject();
@@ -360,46 +414,209 @@ class NutrientViewControllerWeb extends NutrientViewController
   @override
   Future<bool?> setUserInteractionEnabled(bool enabled) async {
     try {
-      await pspdfkitInstance.setUserInteractionEnabled(enabled);
-      return Future.value(true);
+      final jsInstance = instance as JSObject;
+      if (enabled) {
+        // Remove the interaction shield if it exists
+        final shield = jsInstance.getProperty('_interactionShield'.toJS);
+        if (shield != null && shield is JSObject) {
+          shield.callMethod('remove'.toJS);
+        }
+      } else {
+        // Create an overlay div to block interactions
+        final doc = globalContext['document'] as JSObject;
+        final shield =
+            doc.callMethod('createElement'.toJS, 'div'.toJS) as JSObject;
+        final style = shield['style'] as JSObject;
+        style['position'] = 'absolute'.toJS;
+        style['top'] = '0'.toJS;
+        style['left'] = '0'.toJS;
+        style['width'] = '100%'.toJS;
+        style['height'] = '100%'.toJS;
+        style['zIndex'] = '9999'.toJS;
+        style['pointerEvents'] = 'all'.toJS;
+
+        // Try to append to the PSPDFKit container
+        final container =
+            jsInstance.getProperty('contentDocument'.toJS) as JSObject?;
+        if (container != null) {
+          final host = container['host'] as JSObject?;
+          if (host != null) {
+            host.callMethod('appendChild'.toJS, shield);
+          }
+        }
+        jsInstance.setProperty('_interactionShield'.toJS, shield);
+      }
+      return true;
     } catch (e) {
       if (kDebugMode) {
         print('Error setting user interaction: $e');
       }
-      return Future.value(false);
+      return false;
     }
   }
 
-  /// Sets the default color for all annotation operations.
-  /// This color will be used when no specific color is provided to annotation methods.
-  ///
-  /// Example:
-  /// ```dart
-  /// await controller.setDefaultAnnotationColor(Colors.red);
-  /// // Now all annotations will use red color by default
-  /// await controller.enterAnnotationCreationMode(AnnotationTool.inkPen);
-  /// // Ink pen will use red color
-  /// ```
+  /// Creates a PSPDFKit.Color JS object from a Flutter [Color].
+  JSObject? _createPspdfkitColor(Color color) {
+    try {
+      final pspdfkitNamespace = globalContext['PSPDFKit'] as JSObject?;
+      if (pspdfkitNamespace == null) return null;
+      final colorClass = pspdfkitNamespace['Color'] as JSFunction?;
+      if (colorClass == null) return null;
+
+      return colorClass.callAsConstructor({
+        'r': (color.r * 255).round(),
+        'g': (color.g * 255).round(),
+        'b': (color.b * 255).round(),
+      }.jsify()) as JSObject;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error creating PSPDFKit color: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Applies a color to the view state's stroke and fill colors, and to
+  /// defaultAnnotationProperties for all annotation types.
+  void _applyColorToViewState(Color color) {
+    final pspdfkitColor = _createPspdfkitColor(color);
+    if (pspdfkitColor == null) return;
+
+    final annotationTypes = [
+      'ink', 'highlight', 'underline', 'strikeOut', 'squiggly',
+      'note', 'freeText', 'square', 'circle', 'line', 'polygon', 'polyline',
+    ];
+
+    final defaultProps = <String, dynamic>{};
+    for (final type in annotationTypes) {
+      if (['square', 'circle', 'polygon'].contains(type)) {
+        defaultProps[type] = {'strokeColor': pspdfkitColor, 'fillColor': pspdfkitColor};
+      } else {
+        defaultProps[type] = {'strokeColor': pspdfkitColor};
+      }
+    }
+
+    final updateFn = ((JSObject viewState) {
+      JSObject updated = viewState.callMethod(
+          'set'.toJS, 'defaultAnnotationProperties'.toJS, defaultProps.jsify()) as JSObject;
+      updated =
+          updated.callMethod('set'.toJS, 'strokeColor'.toJS, pspdfkitColor) as JSObject;
+      updated =
+          updated.callMethod('set'.toJS, 'fillColor'.toJS, pspdfkitColor) as JSObject;
+      return updated;
+    }).toJS;
+
+    instance.setViewState(updateFn);
+  }
+
+  @override
   Future<bool?> setDefaultAnnotationColor(Color color) async {
     try {
-      await pspdfkitInstance.setDefaultAnnotationColor(color);
-      return Future.value(true);
+      _defaultAnnotationColor = color;
+      _applyColorToViewState(color);
+      return true;
     } catch (e) {
       if (kDebugMode) {
         print('Error setting default annotation color: $e');
       }
-      return Future.value(false);
+      return false;
     }
   }
 
   @override
   Future<bool?> setLockedAnnotationColor(Color color) async {
-    // Web platform falls back to setting the default annotation color.
-    return setDefaultAnnotationColor(color);
+    try {
+      _lockedAnnotationColor = color;
+      _defaultAnnotationColor = color;
+      _applyColorToViewState(color);
+      _setupLockedColorEnforcement();
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting locked annotation color: $e');
+      }
+      return false;
+    }
   }
 
-  /// Gets the current default annotation color.
-  Color? get defaultAnnotationColor => pspdfkitInstance.defaultAnnotationColor;
+  /// Sets up event listeners to enforce the locked color on annotation
+  /// create/update events and view state changes.
+  void _setupLockedColorEnforcement() {
+    // Re-apply locked color on every view state change (e.g. user switches tool)
+    final viewStateCallback = ((JSAny? event) {
+      if (_lockedAnnotationColor != null) {
+        _applyColorToViewState(_lockedAnnotationColor!);
+      }
+    }).toJS;
+    instance.addEventListener('viewState.change', viewStateCallback);
+
+    // Intercept annotation creation — force locked color on new annotations
+    final createCallback = ((JSAny? event) {
+      if (_lockedAnnotationColor == null) return;
+      _enforceLockedColorOnAnnotationEvent(event);
+    }).toJS;
+    instance.addEventListener('annotations.create', createCallback);
+
+    // Intercept annotation updates — revert unauthorized color changes
+    final updateCallback = ((JSAny? event) {
+      if (_lockedAnnotationColor == null) return;
+      _enforceLockedColorOnAnnotationEvent(event);
+    }).toJS;
+    instance.addEventListener('annotations.update', updateCallback);
+  }
+
+  /// Checks annotations from an event and reverts any color that doesn't
+  /// match the locked color.
+  void _enforceLockedColorOnAnnotationEvent(JSAny? event) {
+    if (_lockedAnnotationColor == null || event == null) return;
+
+    try {
+      final eventObj = event as JSObject;
+      final annotations = eventObj['annotations'] as JSObject?;
+      if (annotations == null) return;
+
+      final size = (annotations['size'] as JSNumber?)?.toDartInt ?? 0;
+      if (size == 0) return;
+
+      final lockedColor = _createPspdfkitColor(_lockedAnnotationColor!);
+      if (lockedColor == null) return;
+
+      final lockedR = (_lockedAnnotationColor!.r * 255).round();
+      final lockedG = (_lockedAnnotationColor!.g * 255).round();
+      final lockedB = (_lockedAnnotationColor!.b * 255).round();
+
+      for (var i = 0; i < size; i++) {
+        final annotation =
+            annotations.callMethod('get'.toJS, i.toJS) as JSObject?;
+        if (annotation == null) continue;
+
+        final currentColor = annotation['strokeColor'] as JSObject?;
+        if (currentColor == null) continue;
+
+        final r = (currentColor['r'] as JSNumber?)?.toDartInt;
+        final g = (currentColor['g'] as JSNumber?)?.toDartInt;
+        final b = (currentColor['b'] as JSNumber?)?.toDartInt;
+
+        if (r != lockedR || g != lockedG || b != lockedB) {
+          JSObject updated = annotation.callMethod(
+              'set'.toJS, 'strokeColor'.toJS, lockedColor) as JSObject;
+          final fillColor = annotation['fillColor'];
+          if (fillColor != null) {
+            updated = updated.callMethod(
+                'set'.toJS, 'fillColor'.toJS, lockedColor) as JSObject;
+          }
+          (instance as JSObject).callMethod('update'.toJS, updated);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error enforcing locked color: $e');
+      }
+    }
+  }
+
+  @override
+  Color? get defaultAnnotationColor => _defaultAnnotationColor;
 
   // Helper method to process event data and invoke the user callback
   void _processAndInvokeCallback(
@@ -432,8 +649,6 @@ class NutrientViewControllerWeb extends NutrientViewController
       }
 
       dynamic processObject(dynamic obj) {
-        // Handle JS objects that dartify() couldn't convert (e.g. Immutable.js Records).
-        // Try converting them as annotations via the Web SDK.
         if (obj is JSObject) {
           final converted = _tryConvertJsAnnotation(obj);
           if (converted != null) {
@@ -443,12 +658,9 @@ class NutrientViewControllerWeb extends NutrientViewController
               return converted;
             }
           }
-          // Can't convert — return as-is
           return obj;
         }
 
-        // dartify() may produce Map<Object?, Object?> instead of Map<String, dynamic>.
-        // Normalize to Map<String, dynamic>.
         if (obj is Map && obj is! Map<String, dynamic>) {
           obj = Map<String, dynamic>.from(obj);
         }
@@ -479,7 +691,6 @@ class NutrientViewControllerWeb extends NutrientViewController
 
       dynamic finalData;
 
-      // Normalize top-level map from dartify()
       if (data is Map && data is! Map<String, dynamic>) {
         data = Map<String, dynamic>.from(data);
       }
@@ -499,16 +710,13 @@ class NutrientViewControllerWeb extends NutrientViewController
         print('Processing ${eventEnum.toString()} event: $finalData');
       }
 
-      // Check if annotation events should be suppressed
-      // This prevents infinite loops when programmatically modifying annotations
       if (eventEnum.toString().contains('annotations')) {
         try {
-          // Check if we should suppress annotation events
           if (AnnotationManagerWeb.shouldSuppressEvents('')) {
             if (kDebugMode) {
               print('Suppressing ${eventEnum.toString()} event');
             }
-            return; // Don't call the user callback
+            return;
           }
         } catch (e) {
           // If check fails, proceed with callback
@@ -524,60 +732,41 @@ class NutrientViewControllerWeb extends NutrientViewController
     }
   }
 
-  /// Safely converts a JSAny to a Dart value, handling cases where dartify() fails.
-  ///
-  /// Some JS objects (like Immutable.js Records or certain event data) cannot
-  /// be converted by dartify() and return LegacyJavaScriptObject instances.
-  /// This method handles those cases by manually extracting properties.
   dynamic _safeConvertJsAny(JSAny? jsValue) {
     if (jsValue == null) return null;
 
-    // Try dartify first
     try {
       final dartified = jsValue.dartify();
-      // Check if dartify succeeded - if it returns the same type or a usable type
       if (dartified is Map ||
           dartified is List ||
           dartified is String ||
           dartified is num ||
           dartified is bool ||
           dartified == null) {
-        // Deep convert to handle nested IdentityMap instances
         if (dartified is Map) {
           return _deepConvertAny(dartified);
         }
         return dartified;
       }
-      // dartify returned something unusable (like LegacyJavaScriptObject)
-      // Fall through to manual conversion
-    } catch (_) {
-      // dartify failed, fall through to manual conversion
-    }
+    } catch (_) {}
 
-    // Manual conversion for JSObject using js_interop_unsafe
     try {
       final jsObj = jsValue as JSObject;
       return _convertJsObjectToMap(jsObj);
-    } catch (_) {
-      // Not a JSObject or conversion failed
-    }
+    } catch (_) {}
 
-    // Return null for unconvertible values
     return null;
   }
 
-  /// Converts a JSObject to a Map<String, dynamic> by extracting its properties.
   Map<String, dynamic> _convertJsObjectToMap(JSObject jsObj) {
     final result = <String, dynamic>{};
 
-    // Get object keys using Object.keys() via globalContext
     final objectKeys = globalContext['Object'] as JSObject?;
     if (objectKeys != null) {
       final keysMethod = objectKeys['keys'];
       if (keysMethod != null) {
         final keysArray = objectKeys.callMethod('keys'.toJS, jsObj);
         if (keysArray != null) {
-          // Convert JSArray to list
           final dartKeys = (keysArray as JSArray).toDart;
           for (final jsKey in dartKeys) {
             final key = (jsKey as JSString).toDart;
@@ -591,7 +780,6 @@ class NutrientViewControllerWeb extends NutrientViewController
     return result;
   }
 
-  /// Deep converts any value, handling nested maps and lists.
   dynamic _deepConvertAny(dynamic value) {
     if (value is Map<String, dynamic>) {
       return _deepConvertMap(value);
@@ -607,10 +795,6 @@ class NutrientViewControllerWeb extends NutrientViewController
     return value;
   }
 
-  /// Recursively converts a map and all nested maps/lists to proper Dart types.
-  ///
-  /// This is needed because `dartify()` may return `IdentityMap` instances
-  /// for nested objects which don't behave like regular Dart maps.
   Map<String, dynamic> _deepConvertMap(Map<String, dynamic> input) {
     final result = <String, dynamic>{};
     for (final entry in input.entries) {
@@ -619,7 +803,6 @@ class NutrientViewControllerWeb extends NutrientViewController
     return result;
   }
 
-  /// Recursively converts a value, handling maps and lists.
   dynamic _deepConvertValue(dynamic value) {
     if (value is Map<String, dynamic>) {
       return _deepConvertMap(value);
