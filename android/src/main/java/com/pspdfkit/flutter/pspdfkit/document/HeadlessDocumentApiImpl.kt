@@ -85,7 +85,7 @@ class HeadlessDocumentApiImpl(
 
                         // Create FlutterPdfDocument wrapper with documentId and binaryMessenger
                         // for proper cleanup in closeDocument
-                        val flutterPdfDocument = FlutterPdfDocument(pdfDocument, documentId, binaryMessenger)
+                        val flutterPdfDocument = FlutterPdfDocument(pdfDocument, null, documentId, binaryMessenger)
 
                         // Register document in the global registry
                         FlutterPdfDocument.registerDocument(documentId, flutterPdfDocument)

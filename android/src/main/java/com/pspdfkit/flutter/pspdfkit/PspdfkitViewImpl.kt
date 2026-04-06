@@ -981,12 +981,9 @@ class PspdfkitViewImpl : NutrientViewControllerApi {
                 .build()
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.REDACTION, redactionConfig)
 
-            // Stamp and image tools
+            // Stamp and image tools — these don't support colour selection
             val stampConfig = StampAnnotationConfiguration.builder(context)
-                .setAvailableColors(singleColorList)
-                .setCustomColorPickerEnabled(false)
                 .setForceDefaults(true)
-                .setSupportedProperties(nonColorProperties)
                 .build()
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.STAMP, stampConfig)
             pdfFragment.annotationConfiguration.put(NativeAnnotationTool.IMAGE, stampConfig)
