@@ -513,34 +513,51 @@ class NutrientViewControllerWeb extends NutrientViewController
     instance.setViewState(updateFn);
   }
 
-  /// Overrides annotation presets to use the specified color for all tools.
-  /// Uses WebColorUtils from the nutrient_flutter_web package to create
-  /// Color instances, which handles namespace resolution correctly.
-  /// Builds JS objects entirely through interop to avoid jsify issues.
+  /// Hides colour picker UI on web and applies the locked colour to presets.
+  ///
+  /// The Nutrient Web SDK doesn't expose a style manager like iOS/Android,
+  /// so we inject CSS to hide colour palette/picker elements and rely on
+  /// enforcement listeners to recolour annotations after creation.
   Future<void> _applyColorToAnnotationPresets(Color color) async {
     try {
-      final webColor = _createWebColor(color);
-      if (webColor == null) {
-        if (kDebugMode) print('Could not create web color instance');
-        return;
-      }
-
-      final presetIds = [
-        'inkPen', 'highlighter', 'freeText', 'freeTextCallout',
-        'stamp', 'note', 'square', 'circle', 'ellipse',
-        'line', 'arrow', 'polygon', 'polyline', 'cloudy',
-        'highlight', 'underline', 'strikeout', 'squiggly',
-        'redaction', 'signature', 'image',
-      ];
-
-      // The annotation presets API uses Immutable.js internally and
-      // resists modification. Instead, skip presets entirely and rely on
-      // the enforcement listeners to recolor annotations after creation.
-      if (kDebugMode) print('Locked color applied via enforcement listeners');
+      _injectLockedColorCSS();
+      if (kDebugMode) print('Locked color applied via CSS + enforcement');
     } catch (e) {
       if (kDebugMode) {
         print('Error applying color to annotation presets: $e');
       }
+    }
+  }
+
+  bool _lockedColorCSSInjected = false;
+
+  /// Injects a <style> element that hides colour picker / palette UI in the
+  /// Nutrient Web SDK annotation toolbar.
+  void _injectLockedColorCSS() {
+    if (_lockedColorCSSInjected) return;
+    _lockedColorCSSInjected = true;
+
+    try {
+      final script = '''
+(function() {
+  var id = '__trax_locked_color_css';
+  if (document.getElementById(id)) return;
+  var style = document.createElement('style');
+  style.id = id;
+  style.textContent = [
+    '.PSPDFKit-Annotation-Style-Color-Palette { display: none !important; }',
+    '.PSPDFKit-Annotation-Style-Color { display: none !important; }',
+    '.PSPDFKit-Color-Picker { display: none !important; }',
+    '[data-testid="color-picker"] { display: none !important; }',
+    '[data-testid="annotation-color-button"] { display: none !important; }',
+    '.PSPDFKit-Toolbar-Dropdown-Color { display: none !important; }',
+  ].join('\\n');
+  document.head.appendChild(style);
+})();
+''';
+      globalContext.callMethod('eval'.toJS, script.toJS);
+    } catch (e) {
+      if (kDebugMode) print('Error injecting locked color CSS: $e');
     }
   }
 
