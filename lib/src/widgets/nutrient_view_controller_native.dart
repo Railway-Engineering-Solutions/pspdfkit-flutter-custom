@@ -30,6 +30,12 @@ class NutrientViewControllerNative
   final OnCustomToolbarItemTappedCallback? onCustomToolbarItemTappedListener;
   Color? _defaultAnnotationColor;
 
+  @override
+  bool suppressColorEnforcement = false;
+
+  @override
+  bool isEnforcingColor = false;
+
   NutrientViewControllerNative(
     this._pspdfkitWidgetControllerApi, {
     this.onDocumentLoadedListener,
