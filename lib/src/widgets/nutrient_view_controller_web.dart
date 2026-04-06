@@ -771,10 +771,22 @@ class NutrientViewControllerWeb extends NutrientViewController
 
       if (size == 0) return;
 
+      // Only enforce on annotations created by the current user.
+      // Other users' annotations should keep their original colours.
+      final currentCreator = instance.annotationCreatorName;
+
       for (var i = 0; i < size; i++) {
         final annotation =
             annotations.callMethod('get'.toJS, i.toJS) as JSObject?;
         if (annotation == null) continue;
+
+        // Skip annotations from other users
+        final creatorName = (annotation['creatorName'] as JSString?)?.toDart;
+        if (creatorName != null &&
+            currentCreator != null &&
+            creatorName != currentCreator) {
+          continue;
+        }
 
         // Check all color properties and enforce the locked color.
         // Different annotation types use different color properties:
