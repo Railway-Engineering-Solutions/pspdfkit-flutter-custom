@@ -131,6 +131,11 @@ abstract class NutrientViewController {
   /// On Android/Web this sets the viewer background as a fallback.
   Future<bool?> setPageBackgroundColor(Color color);
 
+  /// When true, skip locked color enforcement on web.
+  /// Set this before programmatically adding annotations from other users,
+  /// then unset after. No-op on native platforms.
+  bool suppressColorEnforcement = false;
+
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor;
 }

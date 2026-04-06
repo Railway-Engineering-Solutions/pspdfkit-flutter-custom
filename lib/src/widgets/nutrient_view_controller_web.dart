@@ -57,6 +57,9 @@ class NutrientViewControllerWeb extends NutrientViewController
   /// Locked annotation color — when set, color changes are reverted.
   Color? _lockedAnnotationColor;
 
+  /// When true, skip color enforcement (used during batch annotation loading).
+  bool suppressColorEnforcement = false;
+
   @override
   Future<bool?> importXfdf(String xfdfPath) async {
     await instance.importXFDF(xfdfPath).toDart;
@@ -731,6 +734,7 @@ class NutrientViewControllerWeb extends NutrientViewController
   /// List of annotation records directly (not a wrapper object).
   void _enforceLockedColorOnAnnotationEvent(JSAny? event) {
     if (_lockedAnnotationColor == null || event == null) return;
+    if (suppressColorEnforcement) return;
 
     try {
       final lockedColor = _createWebColor(_lockedAnnotationColor!);
