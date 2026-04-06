@@ -58,7 +58,12 @@ class NutrientViewControllerWeb extends NutrientViewController
   Color? _lockedAnnotationColor;
 
   /// When true, skip color enforcement (used during batch annotation loading).
+  @override
   bool suppressColorEnforcement = false;
+
+  /// True while the enforcement listener is updating an annotation's colour.
+  /// Check this in event handlers to avoid triggering saves for enforcement updates.
+  bool isEnforcingColor = false;
 
   @override
   Future<bool?> importXfdf(String xfdfPath) async {
@@ -801,7 +806,10 @@ class NutrientViewControllerWeb extends NutrientViewController
 
         if (needsUpdate) {
           if (kDebugMode) print('[NutrientWeb] Enforcing locked color on annotation $i');
+          isEnforcingColor = true;
           instance.update(updated);
+          // Reset after a microtask so the event handler can check the flag
+          Future.microtask(() => isEnforcingColor = false);
         }
       }
     } catch (e) {

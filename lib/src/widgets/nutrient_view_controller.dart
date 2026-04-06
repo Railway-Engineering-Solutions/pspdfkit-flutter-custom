@@ -136,6 +136,10 @@ abstract class NutrientViewController {
   /// then unset after. No-op on native platforms.
   bool suppressColorEnforcement = false;
 
+  /// True while the enforcement listener is updating an annotation's colour.
+  /// Check this in event handlers to avoid triggering saves for enforcement updates.
+  bool isEnforcingColor = false;
+
   /// Gets the current default annotation color.
   Color? get defaultAnnotationColor;
 }
