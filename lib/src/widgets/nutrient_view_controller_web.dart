@@ -11,6 +11,8 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:ui';
 
+import 'package:web/web.dart' as html;
+
 import 'package:flutter/foundation.dart';
 import 'package:nutrient_flutter/nutrient_flutter.dart';
 import 'package:nutrient_flutter/src/events/nutrient_events_extension.dart';
@@ -418,37 +420,17 @@ class NutrientViewControllerWeb extends NutrientViewController
   @override
   Future<bool?> setUserInteractionEnabled(bool enabled) async {
     try {
-      final jsInstance = instance as JSObject;
-      if (enabled) {
-        // Remove the interaction shield if it exists
-        final shield = jsInstance.getProperty('_interactionShield'.toJS);
-        if (shield != null && shield is JSObject) {
-          shield.callMethod('remove'.toJS);
+      // Find all PSPDFKit container elements in the DOM and toggle
+      // pointer-events so Flutter overlays (popups, dialogs) can receive
+      // taps when the editor interaction is disabled.
+      final containers = html.document
+          .querySelectorAll('[id^="pspdfkit-container-"]');
+      final value = enabled ? 'auto' : 'none';
+      for (var i = 0; i < containers.length; i++) {
+        final node = containers.item(i);
+        if (node != null) {
+          (node as html.HTMLElement).style.pointerEvents = value;
         }
-      } else {
-        // Create an overlay div to block interactions
-        final doc = globalContext['document'] as JSObject;
-        final shield =
-            doc.callMethod('createElement'.toJS, 'div'.toJS) as JSObject;
-        final style = shield['style'] as JSObject;
-        style['position'] = 'absolute'.toJS;
-        style['top'] = '0'.toJS;
-        style['left'] = '0'.toJS;
-        style['width'] = '100%'.toJS;
-        style['height'] = '100%'.toJS;
-        style['zIndex'] = '9999'.toJS;
-        style['pointerEvents'] = 'all'.toJS;
-
-        // Try to append to the PSPDFKit container
-        final container =
-            jsInstance.getProperty('contentDocument'.toJS) as JSObject?;
-        if (container != null) {
-          final host = container['host'] as JSObject?;
-          if (host != null) {
-            host.callMethod('appendChild'.toJS, shield);
-          }
-        }
-        jsInstance.setProperty('_interactionShield'.toJS, shield);
       }
       return true;
     } catch (e) {

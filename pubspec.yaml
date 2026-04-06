@@ -21,6 +21,7 @@ dependencies:
   nutrient_flutter_android: ^1.0.0
   nutrient_flutter_ios: ^1.0.1
   nutrient_flutter_web: ^1.0.0
+  web: ^1.1.0
 
 
 # For information on the generic Dart part of this file, see the
